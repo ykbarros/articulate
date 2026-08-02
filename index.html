@@ -1,0 +1,1142 @@
+<title>Articulate! &mdash; Timer &amp; Cards</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<style>
+  :root{
+    --ground:#0d0e16;
+    --panel:#171a2b;
+    --panel-2:#1f2438;
+    --line:rgba(255,255,255,.10);
+    --ink:#f4f5fb;
+    --ink-dim:#a7adc6;
+    --ink-faint:#6b7192;
+    --good:#25c281;
+    --miss:#ff6a5a;
+    /* category colours */
+    --c-object:#2f6bff;
+    --c-nature:#1fbf75;
+    --c-action:#ff4c3b;
+    --c-world:#f5b301;
+    --c-person:#ff3d8b;
+    --c-random:#9b6bff;
+    --accent:#9b6bff;
+    --accent-ink:#0d0e16;
+    --display:"Arial Black","Helvetica Neue Bold","Helvetica Neue",Helvetica,Arial,sans-serif;
+    --body:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--ground);
+    color:var(--ink);
+    font-family:var(--body);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+  }
+  button{font-family:inherit;cursor:pointer;border:0;color:inherit;background:none}
+  button:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:14px}
+
+  .app{
+    max-width:540px;margin:0 auto;min-height:100dvh;
+    display:flex;flex-direction:column;
+    padding:max(18px,env(safe-area-inset-top)) 18px max(24px,env(safe-area-inset-bottom));
+    position:relative;
+  }
+  /* the accent flood that lives behind everything while playing */
+  .flood{position:fixed;inset:0;z-index:-1;opacity:0;transition:opacity .45s ease;
+    background:
+      radial-gradient(120% 80% at 50% -10%, color-mix(in srgb,var(--accent) 55%, transparent), transparent 70%),
+      linear-gradient(180deg, color-mix(in srgb,var(--accent) 16%, var(--ground)), var(--ground));
+  }
+  body.flooded .flood{opacity:1}
+
+  .screen{display:none;flex:1;flex-direction:column;animation:rise .32s ease both}
+  .screen.on{display:flex}
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+  /* ---------- HOME ---------- */
+  .brand{display:flex;flex-direction:column;gap:2px;padding:6px 2px 18px}
+  .brand h1{
+    font-family:var(--display);font-weight:900;margin:0;line-height:.86;
+    font-size:clamp(46px,16vw,74px);letter-spacing:-.04em;
+    text-transform:uppercase;
+  }
+  .brand h1 .bang{color:var(--c-action);-webkit-text-stroke:0}
+  .brand .tag{color:var(--ink-dim);font-size:14px;letter-spacing:.02em;margin-top:8px}
+  .brand .tag b{color:var(--ink)}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .cat{
+    position:relative;overflow:hidden;border-radius:20px;padding:18px 16px;
+    background:var(--panel);border:1px solid var(--line);text-align:left;
+    display:flex;flex-direction:column;gap:2px;min-height:104px;justify-content:flex-end;
+    transition:transform .12s ease, box-shadow .2s ease;
+  }
+  .cat:active{transform:scale(.97)}
+  .cat .swatch{position:absolute;inset:0 auto 0 0;width:6px;background:var(--cc)}
+  .cat .blob{position:absolute;top:-40px;right:-40px;width:120px;height:120px;border-radius:50%;
+    background:var(--cc);opacity:.20;filter:blur(4px)}
+  .cat .name{font-family:var(--display);font-weight:900;font-size:24px;letter-spacing:-.02em;text-transform:uppercase;position:relative}
+  .cat .sub{color:var(--ink-dim);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;position:relative}
+  .cat .count{color:var(--ink-faint);font-size:11px;margin-top:6px;position:relative;font-variant-numeric:tabular-nums}
+
+  .homebar{display:flex;align-items:center;gap:10px;margin-top:18px;flex-wrap:wrap}
+  .seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px;gap:2px}
+  .seg button{padding:8px 14px;border-radius:999px;font-weight:700;font-size:14px;color:var(--ink-dim);font-variant-numeric:tabular-nums}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+  .seg .lbl{align-self:center;color:var(--ink-faint);font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:0 6px}
+  .ghost{padding:10px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink-dim);font-weight:700;font-size:13px}
+  .ghost:active{transform:scale(.96)}
+  .spacer{flex:1}
+
+  /* ---------- READY ---------- */
+  .ready-wrap{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:10px}
+  .ready-cat{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:clamp(44px,15vw,72px);
+    letter-spacing:-.03em;line-height:.9;color:var(--accent)}
+  .ready-sub{color:var(--ink-dim);font-size:15px;max-width:22ch;line-height:1.4}
+  .ready-hint{margin-top:4px;color:var(--ink-faint);font-size:13px;display:flex;align-items:center;gap:8px}
+  .kbd{border:1px solid var(--line);border-radius:8px;padding:2px 8px;background:var(--panel);font-size:12px}
+
+  .cta{
+    width:100%;padding:20px;border-radius:20px;background:var(--accent);color:var(--accent-ink);
+    font-family:var(--display);font-weight:900;font-size:22px;letter-spacing:.02em;text-transform:uppercase;
+    box-shadow:0 12px 30px -10px color-mix(in srgb,var(--accent) 70%,transparent);
+    transition:transform .1s ease;
+  }
+  .cta:active{transform:translateY(2px) scale(.99)}
+  .topback{align-self:flex-start;color:var(--ink-dim);font-weight:700;font-size:14px;padding:8px 4px}
+
+  /* ---------- PLAY ---------- */
+  .playtop{display:flex;align-items:center;gap:8px;padding:2px 0 10px}
+  .tag-cat{font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:-.01em;font-size:16px;color:var(--accent);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .score-chip{font-family:var(--display);font-variant-numeric:tabular-nums;font-weight:900;font-size:16px;color:var(--good);background:color-mix(in srgb,var(--good) 15%,transparent);border:1px solid color-mix(in srgb,var(--good) 32%,transparent);border-radius:999px;padding:4px 12px;min-width:42px;text-align:center;flex:0 0 auto;line-height:1.1}
+  .top-btns{display:flex;gap:6px;flex:0 0 auto}
+  .mini-btn.danger{color:var(--miss);border-color:color-mix(in srgb,var(--miss) 35%,transparent)}
+
+  .ring-wrap{display:flex;justify-content:center;padding:6px 0 2px;position:relative}
+  .ring{width:120px;height:120px;transform:rotate(-90deg)}
+  .ring .track{fill:none;stroke:rgba(255,255,255,.10);stroke-width:9}
+  .ring .prog{fill:none;stroke:var(--accent);stroke-width:9;stroke-linecap:round;transition:stroke-dashoffset .2s linear}
+  .ring-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:var(--display);font-weight:900;font-size:40px;font-variant-numeric:tabular-nums}
+  body.lowtime .ring-num{color:var(--miss)}
+  body.lowtime .ring .prog{stroke:var(--miss)}
+
+  .word-stage{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:14px 4px}
+  .stage-inner{display:flex;flex-direction:column;align-items:center;gap:16px}
+  .retry-tag{display:none;align-items:center;gap:7px;font-size:12.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent);
+    border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);padding:7px 14px;border-radius:999px}
+  .retry-tag.show{display:inline-flex}
+  .stash-bar{display:none;width:100%;margin-top:8px;padding:13px 16px;border-radius:16px;
+    background:color-mix(in srgb,var(--accent) 14%,var(--panel));
+    border:1px dashed color-mix(in srgb,var(--accent) 55%,transparent);
+    color:var(--accent);font-weight:800;font-size:13.5px;letter-spacing:.03em;text-transform:uppercase}
+  .stash-bar.show{display:block}
+  .stash-bar:active{transform:scale(.98)}
+  .word{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.94;letter-spacing:-.03em;
+    font-size:clamp(40px,13.5vw,68px);text-wrap:balance;transition:opacity .12s ease, transform .12s ease}
+  .word.pop{animation:pop .18s ease}
+  @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+
+  .actions{display:grid;grid-template-columns:1fr 1.6fr;gap:12px;padding-top:4px;padding-bottom:10px}
+  .btn{border-radius:20px;padding:22px 12px;font-family:var(--display);font-weight:900;text-transform:uppercase;
+    font-size:20px;letter-spacing:.02em;transition:transform .09s ease}
+  .btn:active{transform:translateY(2px) scale(.98)}
+  .btn-pass{background:var(--panel-2);color:var(--ink-dim);border:1px solid var(--line)}
+  .btn-pass.spent{opacity:.42;cursor:default}
+  .btn-pass.spent:active{transform:none}
+  .btn-got{background:var(--good);color:#04150d;box-shadow:0 12px 26px -12px var(--good)}
+  .btn small{display:block;font-family:var(--body);font-weight:700;font-size:11px;letter-spacing:.1em;opacity:.7;margin-top:3px}
+
+  /* ---------- END ---------- */
+  .end-wrap{flex:1;display:flex;flex-direction:column}
+  .end-head{text-align:center;padding:14px 0 6px}
+  .end-head .label{color:var(--ink-faint);text-transform:uppercase;letter-spacing:.16em;font-size:12px}
+  .end-head .big{font-family:var(--display);font-weight:900;font-size:clamp(72px,26vw,120px);line-height:.9;color:var(--accent)}
+  .end-head .big small{font-family:var(--display);font-size:.34em;color:var(--ink-dim)}
+  .end-head .sub{color:var(--ink-dim);font-size:14px;margin-top:4px}
+
+  .recap{background:var(--panel);border:1px solid var(--line);border-radius:18px;margin-top:12px;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column}
+  .recap h3{margin:0;padding:12px 16px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);border-bottom:1px solid var(--line)}
+  .recap ul{list-style:none;margin:0;padding:6px 0;overflow:auto;flex:1}
+  .recap li{display:flex;align-items:center;gap:10px;padding:8px 16px;font-size:16px;font-weight:600}
+  .recap li .mark{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:900;flex:0 0 auto}
+  .recap li.got .mark{background:color-mix(in srgb,var(--good) 24%,transparent);color:var(--good)}
+  .recap li.passed .mark{background:color-mix(in srgb,var(--miss) 22%,transparent);color:var(--miss)}
+  .recap li.passed span{color:var(--ink-dim)}
+
+  .end-actions{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:12px}
+  .end-actions .cta{padding:18px;font-size:18px}
+  .end-actions .cta.alt{background:var(--panel);color:var(--ink);border:1px solid var(--line);box-shadow:none}
+
+  /* ---------- toast + modal ---------- */
+  .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:var(--ground);font-weight:800;font-size:14px;padding:12px 18px;border-radius:999px;
+    opacity:0;pointer-events:none;transition:.3s ease;z-index:50;max-width:90vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .modal{position:fixed;inset:0;z-index:60;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.6)}
+  .modal.on{display:flex}
+  .sheet{background:var(--panel);width:100%;max-width:540px;border-radius:24px 24px 0 0;border:1px solid var(--line);border-bottom:0;
+    padding:20px 20px max(20px,env(safe-area-inset-bottom));animation:rise .28s ease both;max-height:86dvh;overflow:auto}
+  .sheet h2{font-family:var(--display);text-transform:uppercase;font-size:26px;margin:0 0 4px}
+  .sheet p{color:var(--ink-dim);font-size:14px;line-height:1.5;margin:0 0 14px}
+  .field{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+  .field label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+  select,textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:14px;
+    padding:12px 14px;font-family:inherit;font-size:16px}
+  textarea{min-height:110px;resize:vertical;line-height:1.5}
+  .cust-err{display:none;color:var(--miss);font-size:13.5px;font-weight:600;line-height:1.5;background:color-mix(in srgb,var(--miss) 10%,transparent);border:1px solid color-mix(in srgb,var(--miss) 38%,transparent);border-radius:12px;padding:10px 13px;margin:-2px 0 14px}
+  .cust-err.show{display:block}
+  .cust-err b{color:var(--ink)}
+  .cust-ok{color:var(--good);border-color:color-mix(in srgb,var(--good) 38%,transparent);background:color-mix(in srgb,var(--good) 10%,transparent)}
+  .sheet .row{display:flex;gap:10px;margin-top:4px}
+  .sheet .row .cta{padding:15px;font-size:16px}
+  .sheet .close{position:absolute}
+  .how li{margin:0 0 8px;color:var(--ink-dim);font-size:14.5px;line-height:1.5}
+  .how b{color:var(--ink)}
+
+  /* ---------- landing ---------- */
+  .home-actions{display:flex;flex-direction:column;gap:12px;margin-top:2px}
+  .big-cta{width:100%;padding:20px;border-radius:22px;text-align:left;border:1px solid var(--line);
+    background:var(--panel);display:flex;flex-direction:column;gap:3px;transition:transform .1s ease}
+  .big-cta .t{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:23px;letter-spacing:-.01em}
+  .big-cta .d{color:var(--ink-dim);font-size:13px}
+  .big-cta.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;
+    box-shadow:0 12px 30px -12px color-mix(in srgb,var(--accent) 70%,transparent)}
+  .big-cta.primary .d{color:rgba(13,14,22,.72)}
+  .big-cta:active{transform:scale(.99)}
+
+  /* ---------- setup ---------- */
+  .setup-scroll{flex:1;overflow:auto;display:flex;flex-direction:column;gap:18px;padding:4px 2px}
+  .field-lg > label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);display:block;margin-bottom:9px}
+  .team-rows{display:flex;flex-direction:column;gap:8px}
+  .team-row{display:flex;gap:9px;align-items:center}
+  .team-row .dot{width:13px;height:13px;border-radius:50%;flex:0 0 auto}
+  .team-row input{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:12px 14px;font-size:16px;font-family:inherit}
+  .team-row .rm{color:var(--ink-faint);font-size:20px;line-height:1;width:40px;height:44px;border-radius:11px;border:1px solid var(--line);background:var(--panel)}
+  .addteam{align-self:flex-start;color:var(--accent);font-weight:800;font-size:14px;padding:8px 2px}
+  .seg.full{width:100%;justify-content:stretch}
+  .seg.full button{flex:1;white-space:nowrap}
+
+  /* ---------- scoreboard / turn ---------- */
+  .turn-hd{text-align:center;padding:12px 0 2px}
+  .turn-hd .who{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:clamp(30px,10vw,46px);color:var(--accent);line-height:.95}
+  .turn-hd .sub{color:var(--ink-dim);font-size:13.5px;margin-top:6px;text-wrap:balance}
+  .spin-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;flex:1;min-height:120px}
+  .spin-cat{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:clamp(38px,13vw,62px);letter-spacing:-.03em;line-height:.9;color:var(--accent);text-align:center;text-wrap:balance}
+  .spin-cat .s{display:block;font-family:var(--body);font-weight:700;font-size:12.5px;letter-spacing:.08em;color:var(--ink-dim);text-transform:uppercase;margin-top:8px}
+  .board{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .board-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--line)}
+  .board-row.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .board-row .dot{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
+  .board-row .nm{flex:1;font-weight:800;font-size:16px}
+  .board-row .fin{font-size:10.5px;color:var(--c-world);font-weight:800;letter-spacing:.08em;text-transform:uppercase;border:1px solid color-mix(in srgb,var(--c-world) 45%,transparent);border-radius:999px;padding:2px 8px}
+  .board-row .pts{font-variant-numeric:tabular-nums;font-weight:900;font-size:21px;font-family:var(--display);min-width:34px;text-align:right}
+
+  /* ---------- pause overlay ---------- */
+  .pause-ov{position:fixed;inset:0;z-index:58;background:rgba(6,7,12,.9);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:26px}
+  .pause-ov.on{display:flex}
+  .pause-ov .pt{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:44px}
+  .pause-ov .pd{color:var(--ink-dim);font-size:15px;max-width:26ch;line-height:1.5}
+  .bz-label{color:var(--miss);font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:32px;letter-spacing:.02em}
+  .bz-word{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:clamp(34px,11vw,54px);line-height:.95;text-wrap:balance;margin:0}
+  .bz-q{color:var(--ink-dim);font-size:15px;max-width:28ch;line-height:1.5}
+  .bz-q b{color:var(--ink)}
+  .bz-btns{display:grid;grid-template-columns:1fr 1.35fr;gap:12px;width:100%;max-width:420px;margin-top:10px}
+
+  /* ---------- foul ---------- */
+  .foul-bar{align-self:center;color:var(--miss);font-weight:800;font-size:12px;letter-spacing:.05em;text-transform:uppercase;padding:9px 16px;border:1px solid color-mix(in srgb,var(--miss) 40%,transparent);border-radius:999px;background:color-mix(in srgb,var(--miss) 10%,transparent);margin:22px auto 16px}
+  .foul-bar:active{transform:scale(.97)}
+  .mini-btn{color:var(--ink-dim);font-weight:700;font-size:13px;border:1px solid var(--line);padding:7px 11px;border-radius:999px;background:var(--panel)}
+
+  /* ---------- all-play ---------- */
+  .ap-cards{display:flex;flex-direction:column;gap:14px;flex:1;justify-content:center}
+  .ap-card{border-radius:22px;padding:20px;border:1px solid var(--line);background:var(--panel);text-align:center;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden}
+  .ap-card::before{content:"";position:absolute;inset:0 auto 0 0;width:6px;background:var(--cc)}
+  .ap-card .cat{font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:var(--cc)}
+  .ap-card .wd{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:clamp(30px,10vw,50px);line-height:.95;text-wrap:balance}
+  .ap-card .pick{margin-top:6px;font-size:16px;padding:14px}
+  .ap-note{color:var(--ink-faint);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+
+  /* ---------- victory ---------- */
+  .victory{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px}
+  .victory .crown{font-size:60px;line-height:1}
+  .victory .win{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:clamp(44px,15vw,74px);color:var(--accent);line-height:.9;text-wrap:balance}
+  #confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:57;display:none}
+  #confetti.on{display:block}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001ms!important;transition-duration:.001ms!important}
+  }
+</style>
+
+<div class="flood" aria-hidden="true"></div>
+
+<div class="app">
+
+  <!-- ============ HOME (landing) ============ -->
+  <section class="screen on" id="s-home">
+    <div class="brand">
+      <h1>Articu&shy;late<span class="bang">!</span></h1>
+    </div>
+    <div class="home-actions" style="margin-top:40px">
+      <button class="big-cta primary" id="goSetup"><span class="t">New game</span><span class="d">Teams, scoring, and a race to the finish</span></button>
+      <button class="big-cta" id="goPractice"><span class="t">Just cards &amp; timer</span><span class="d">No scoring &mdash; pick a category and describe</span></button>
+    </div>
+    <div class="spacer"></div>
+    <div class="homebar">
+      <button class="ghost" id="openCustom">+ Your words</button>
+      <button class="ghost" id="openHow">How to play</button>
+      <button class="ghost" id="resetUsed">Reset deck</button>
+    </div>
+  </section>
+
+  <!-- ============ PRACTICE (category grid) ============ -->
+  <section class="screen" id="s-practice">
+    <button class="topback" data-go="home">&lsaquo; Back</button>
+    <div class="brand" style="padding:2px 2px 12px"><h1 style="font-size:clamp(30px,11vw,50px)">Just cards</h1></div>
+    <div class="grid" id="catGrid"></div>
+    <div class="homebar">
+      <div class="seg" role="group" aria-label="Round length">
+        <span class="lbl">Timer</span>
+        <button data-secs="30" aria-pressed="true">30s</button>
+        <button data-secs="45" aria-pressed="false">45s</button>
+        <button data-secs="60" aria-pressed="false">60s</button>
+        <button data-secs="0" aria-pressed="false">None</button>
+      </div>
+    </div>
+    <div class="homebar">
+      <button class="ghost" id="goPracticeAP">&#127922; All-play &mdash; 2 random cards, no timer</button>
+    </div>
+  </section>
+
+  <!-- ============ READY ============ -->
+  <section class="screen" id="s-ready">
+    <button class="topback" data-go="practice">&lsaquo; Categories</button>
+    <div class="ready-wrap">
+      <div class="ready-cat" id="readyCat">Object</div>
+      <div class="ready-sub" id="readySub">Describe the word without saying it &mdash; or any word that sounds like it.</div>
+      <div class="ready-hint">Hand the phone to the <span class="kbd">describer</span></div>
+    </div>
+    <button class="cta" id="startBtn">Start round</button>
+  </section>
+
+  <!-- ============ PLAY ============ -->
+  <section class="screen" id="s-play">
+    <div class="playtop">
+      <span class="tag-cat" id="playCat">Object</span>
+      <span class="score-chip" id="scGot">0</span>
+      <div class="top-btns">
+        <button class="mini-btn" id="pauseBtn">Pause</button>
+        <button class="mini-btn danger" id="stopBtn">End</button>
+      </div>
+    </div>
+    <div class="ring-wrap">
+      <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="track" cx="60" cy="60" r="52"></circle>
+        <circle class="prog" id="ringProg" cx="60" cy="60" r="52"></circle>
+      </svg>
+      <div class="ring-num" id="ringNum">30</div>
+    </div>
+    <div class="word-stage">
+      <div class="stage-inner">
+        <div class="retry-tag" id="retryTag">&#8617; Your passed card &mdash; another go</div>
+        <div class="word" id="wordEl">Ready</div>
+      </div>
+    </div>
+    <button class="stash-bar" id="stashBtn" type="button">&#8617; Go back to the card you passed</button>
+    <button class="foul-bar" id="foulBtn" type="button">&#9873; Foul &mdash; discard this card</button>
+    <div class="actions">
+      <button class="btn btn-pass" id="passBtn">Pass<small>once per turn</small></button>
+      <button class="btn btn-got" id="gotBtn">Got it<small>tap for the next word</small></button>
+    </div>
+  </section>
+
+  <!-- ============ END ============ -->
+  <section class="screen" id="s-end">
+    <div class="end-wrap">
+      <div class="end-head">
+        <div class="label" id="endCat">Object round</div>
+        <div class="big"><span id="endGot">0</span></div>
+        <div class="sub" id="endSub">0 passed this round.</div>
+      </div>
+      <div class="recap">
+        <h3>Round recap</h3>
+        <ul id="recapList"></ul>
+      </div>
+      <div class="end-actions">
+        <button class="cta alt" data-go="practice">Categories</button>
+        <button class="cta" id="againBtn">Play again</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SETUP ============ -->
+  <section class="screen" id="s-setup">
+    <button class="topback" data-go="home">&lsaquo; Back</button>
+    <div class="brand" style="padding:2px 2px 10px"><h1 style="font-size:clamp(28px,10vw,46px)">New game</h1></div>
+    <div class="setup-scroll">
+      <div class="field-lg">
+        <label>Teams</label>
+        <div class="team-rows" id="teamRows"></div>
+        <button class="addteam" id="addTeam">+ Add team</button>
+      </div>
+      <div class="field-lg">
+        <label>Play to</label>
+        <div class="seg full" id="targetSeg">
+          <button data-t="20" aria-pressed="true">20 &middot; short</button>
+          <button data-t="30" aria-pressed="false">30 &middot; med</button>
+          <button data-t="40" aria-pressed="false">40 &middot; long</button>
+        </div>
+      </div>
+      <div class="field-lg">
+        <label>Round timer</label>
+        <div class="seg full" id="secSeg">
+          <button data-secs="30" aria-pressed="true">30s</button>
+          <button data-secs="45" aria-pressed="false">45s</button>
+          <button data-secs="60" aria-pressed="false">60s</button>
+        </div>
+      </div>
+    </div>
+    <button class="cta" id="startGame">Start game</button>
+  </section>
+
+  <!-- ============ TURN (scoreboard + spinner) ============ -->
+  <section class="screen" id="s-turn">
+    <div class="turn-hd">
+      <div class="who" id="turnWho">Red</div>
+      <div class="sub" id="turnSub">Tap to spin your category</div>
+    </div>
+    <div class="spin-wrap"><div class="spin-cat" id="spinCat">Ready?</div></div>
+    <button class="cta" id="spinCta">Spin the category</button>
+    <div class="board" id="board"></div>
+    <div class="spacer"></div>
+    <button class="ghost" id="quitGame" style="align-self:center;margin-top:10px">Quit game</button>
+  </section>
+
+  <!-- ============ TURN END ============ -->
+  <section class="screen" id="s-turnend">
+    <div class="end-head">
+      <div class="sub" id="teName" style="margin:0 0 4px">Red score:</div>
+      <div class="big" id="teGot">0</div>
+      <div class="sub" id="teSub" style="color:var(--c-world);margin-top:6px;display:none"></div>
+    </div>
+    <div class="recap"><h3>This turn</h3><ul id="teRecap"></ul></div>
+    <button class="cta" id="teNext" style="margin-top:12px">Next team</button>
+  </section>
+
+  <!-- ============ ALL-PLAY DEAL ============ -->
+  <section class="screen" id="s-apsetup">
+    <div class="turn-hd">
+      <div class="who" id="apWho">Red</div>
+      <div class="sub" id="apSub">All-play for the win! Pick <b>one</b> card to describe &mdash; no timer, every team can shout the answer.</div>
+    </div>
+    <div class="ap-cards" id="apCards"></div>
+    <div class="ap-note" id="apNote" style="text-align:center;padding:6px 0 2px">Your team must guess it before anyone else</div>
+  </section>
+
+  <!-- ============ ALL-PLAY DESCRIBE ============ -->
+  <section class="screen" id="s-allplay">
+    <div class="playtop">
+      <span class="tag-cat" id="apCat">Nature</span>
+      <span class="ap-note">All-play &middot; no timer</span>
+    </div>
+    <div class="word-stage"><div class="stage-inner"><div class="word" id="apWord">Word</div></div></div>
+    <div class="actions">
+      <button class="btn btn-pass" id="apSteal">Boo!<small>another team got it first</small></button>
+      <button class="btn btn-got" id="apWin">We got it!<small>your team wins the game</small></button>
+    </div>
+  </section>
+
+  <!-- ============ VICTORY ============ -->
+  <section class="screen" id="s-victory">
+    <div class="victory">
+      <div class="crown">&#127942;</div>
+      <div class="label" style="color:var(--ink-faint);text-transform:uppercase;letter-spacing:.16em;font-size:12px">Winner</div>
+      <div class="win" id="winName">Red</div>
+      <div class="sub" id="winSub" style="color:var(--ink-dim)"></div>
+    </div>
+    <div class="end-actions">
+      <button class="cta alt" data-go="home">Home</button>
+      <button class="cta" id="rematch">Rematch</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- custom words sheet -->
+<div class="modal" id="customModal">
+  <div class="sheet">
+    <h2>Your own words</h2>
+    <p>Add your own cards to any category &mdash; inside jokes, names, anything. Saved on this device and shuffled into the deck.</p>
+    <div class="field">
+      <label for="customCat">Category</label>
+      <select id="customCat"></select>
+    </div>
+    <div class="field">
+      <label for="customWords">Words (one per line, or comma-separated)</label>
+      <textarea id="customWords" placeholder="Aunt Sylvia&#10;the wonky garden gate&#10;that time in Portugal"></textarea>
+    </div>
+    <div class="cust-err" id="customErr"></div>
+    <div class="row">
+      <button class="cta alt" id="closeCustom" style="flex:1">Close</button>
+      <button class="cta" id="saveCustom" style="flex:1">Save words</button>
+    </div>
+  </div>
+</div>
+
+<!-- how to play sheet -->
+<div class="modal" id="howModal">
+  <div class="sheet">
+    <h2>How to play</h2>
+    <ol class="how">
+      <li><b>New game</b> &rarr; name your teams and pick a target (20 / 30 / 40).</li>
+      <li>On your turn, <b>spin</b> for a random category, then the describer gets word after word for 30 seconds.</li>
+      <li>Describe it <b>without saying the word</b>, any part of it, or what it rhymes with. Right? <b>Got it</b>. Stuck? <b>Pass</b> (once, and you can go back to it). Broke a rule? <b>Foul</b> to bin the card.</li>
+      <li>Each <b>Got it</b> is a point; scores track automatically. First team to the target reaches the <b>finish</b>.</li>
+      <li>To win you must take the <b>all-play</b>: pick one of two cards and describe it with no timer &mdash; your team has to guess before anyone else shouts it, or you try again next turn.</li>
+    </ol>
+    <div class="row"><button class="cta" id="closeHow" style="flex:1">Got it</button></div>
+  </div>
+</div>
+
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<div class="pause-ov" id="pauseOv">
+  <div class="pt">Paused</div>
+  <div class="pd">Clock&rsquo;s stopped for a rule check. Resume when you&rsquo;re ready.</div>
+  <button class="cta" id="resumeBtn" style="max-width:280px">Resume</button>
+</div>
+
+<div class="pause-ov" id="buzzOv">
+  <div class="bz-label">Buzzer!</div>
+  <div class="bz-word" id="buzzWord">word</div>
+  <div class="bz-q">Did they shout it <b>before</b> the buzzer?</div>
+  <div class="bz-btns">
+    <button class="btn btn-pass" id="buzzMiss">Too late<small>doesn&rsquo;t count</small></button>
+    <button class="btn btn-got" id="buzzGot">Got it!<small>counts</small></button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- word bank ---------------- */
+  const CATS = [
+    { key:"object", label:"Object", sub:"Things", color:"var(--c-object)", words:
+      ["umbrella","toothbrush","ladder","mirror","backpack","kettle","stapler","candle","wallet","helmet","scissors","pillow","telescope","anchor","guitar","camera","compass","hammer","teaspoon","magnet","balloon","envelope","lantern","whistle","corkscrew","thermometer","wheelbarrow","chandelier","skateboard","microscope","harmonica","trampoline","extension cord","remote control","frying pan","sewing machine","fire extinguisher","vacuum cleaner","alarm clock","safety pin","rubber duck","sleeping bag","ironing board","tape measure","garden hose","coat hanger","paperclip","doorbell","kettlebell","binoculars","stopwatch","padlock","toaster","wheelchair","umbrella stand","shoelace","zip","battery","funnel","tripod","spirit level","hourglass","dustpan","stethoscope","bagpipes","yo-yo","piggy bank","welcome mat","bubble wrap","clothes peg","screwdriver","spanner","watering can","wristwatch","sunglasses","suitcase","briefcase","kite","jigsaw puzzle","dartboard","snow globe","thimble","whisk","colander","rolling pin","cheese grater","oven mitt","drawing pin","hole punch","calculator","abacus","typewriter","cassette tape","vinyl record","jukebox","walkie-talkie","megaphone","metronome","tuning fork","xylophone","tambourine","accordion","saxophone","trombone","cello","deck of cards","dice","chessboard","dominoes","spinning top","pogo stick","hula hoop","skipping rope","boomerang","frisbee","surfboard","flippers","life jacket","oar","fishing rod","tent","hammock","wheelie bin","lawnmower","rake","shovel","pitchfork","chainsaw","drill","chisel","plunger","mousetrap","doorknob","hinge","letterbox","chimney","weathervane","sundial","birdhouse","scarecrow","wind chime","lava lamp","disco ball","fairy lights","torch","matchbox","magnifying glass","protractor","globe","microphone","headphones","joystick","shopping trolley","traffic cone","fire hydrant","park bench","mannequin","corkboard","stepladder","wig","easel","kaleidoscope","teapot","mug","saucer","plate","bowl","fork","knife","ladle","spatula","tongs","peeler","bottle opener","can opener","nutcracker","garlic press","pizza cutter","ice cube tray","chopsticks","napkin","tablecloth","placemat","coaster","candlestick","salt shaker","pepper mill","cafetiere","blender","food processor","microwave","oven","stove","refrigerator","freezer","dishwasher","sink","tap","mixer","sieve","muffin tin","baking tray","cake tin","cookie cutter","apron","tea towel","sponge","scrubbing brush","bucket","broom","feather duster","rubber gloves","laundry basket","washing line","detergent","wardrobe","chest of drawers","bookshelf","coffee table","armchair","sofa","footstool","beanbag","rocking chair","deckchair","sun lounger","coat rack","shoe rack","picture frame","vase","plant pot","terrarium","aquarium","fish tank","birdcage","kennel","litter tray","leash","collar","saddle","stirrup","horseshoe","bridle","lasso","fishing net","harpoon","spear","bow and arrow","catapult","slingshot","crossbow","dagger","sword","shield","suit of armour","gauntlet","crown","tiara","sceptre","goblet","chalice","cauldron","quill","ink pot","wax seal","scroll","parchment","atlas","encyclopedia","dictionary","thesaurus","bookmark","spectacles","monocle","contact lens","hearing aid","walking stick","cane","crutch","zimmer frame","plaster cast","bandage","sling","eye patch","splint","syringe","pill bottle","inhaler","cotton bud","tweezers","nail clippers","nail file","razor","shaving foam","deodorant","toothpaste","dental floss","mouthwash","hairbrush","comb","hairdryer","straighteners","curlers","scrunchie","bobby pin","lipstick","mascara","eyeliner","foundation","blusher","nail varnish","perfume bottle","cotton wool","compact mirror","handbag","purse","clutch bag","satchel","holdall","duffel bag","bum bag","passport","boarding pass","ticket","wristband","lanyard","name badge","keyring","house key","car key","combination lock","safe","treasure chest","jewellery box","music box","coin","banknote","credit card","cheque book","receipt","cash register","bulldog clip","rubber band","sticky note","notepad","diary","calendar","whiteboard","blackboard","chalk","marker pen","highlighter","fountain pen","biro","pencil","pencil sharpener","eraser","ruler","set square","glue stick","sellotape","guillotine","laminator","printer","scanner","photocopier","shredder","filing cabinet","desk lamp","swivel chair","mouse mat","keyboard","monitor","webcam","router","modem","USB stick","hard drive","power bank","charger","plug","socket","adapter","fuse box","light switch","dimmer switch","intercom","door handle","doorstop","draught excluder","curtain","blind","shutter","radiator","thermostat","boiler","fireplace","poker","bellows","log basket","sledgehammer","mallet","crowbar","pliers","wrench","allen key","sandpaper","paint roller","paintbrush","paint tin","dust sheet","tarpaulin","compost bin","plant mister","secateurs","trowel","hoe","hose reel","sprinkler","bird feeder","garden gnome","parasol","barbecue","fire pit","patio heater","lawn mower","leaf blower","hedge trimmer","workbench","vice","anvil","blowtorch","soldering iron","pipette","test tube","beaker","bunsen burner","petri dish","microscope slide","sextant","barometer","metal detector","egg timer","sand timer","cuckoo clock","grandfather clock","pocket watch","opera glasses","periscope","camera tripod","scooter","tricycle","tandem bike","rollerblades","roller skates","ice skates","sledge","toboggan","snowshoes","dinghy","pedalo","hot air balloon","hang glider","zip wire","bow tie","cufflinks","waistcoat","dungarees","overalls","poncho","kimono","kilt","sari","turban","beret","fedora","sombrero","top hat","bowler hat","flat cap","balaclava","earmuffs","mittens","wellies","flip-flops","clogs","stilettos","trainers","slippers","corset","suspenders","onesie","tutu","leotard","swimsuit","wetsuit","goggles","gas mask","hard hat","high-vis jacket","knee pads","percolator","gravy boat","butter dish","sugar bowl","egg cup","ramekin","cocktail shaker","decanter","wine glass","champagne flute","tankard","pint glass","shot glass","drinking straw","ice bucket","trivet","cake stand","piping bag","bread bin","biscuit tin","lunchbox","thermos","hip flask","water bottle","jerry can","plumb line","stud finder","nail gun","staple gun","glue gun","angle grinder","hacksaw","coping saw","rasp","clamp","sawhorse","toolbox","tool belt","socket set","torque wrench","ratchet","screw","nail","bolt","nut","washer","dowel","bracket","wall plug","picture hook","coat stand","letter rack","towel rail","toilet brush","soap dish","shower curtain","bath mat","shower head","loofah","flannel","bath bomb","hot water bottle","electric blanket","duvet","bolster","cushion","throw","tablet","smartphone","smartwatch","e-reader","games console","controller","VR headset","projector","laser pointer","dictaphone","pager","landline","fax machine","answering machine","surge protector","docking station","standing desk","out-tray","business card","ring binder","index card","flashcard","correction fluid","ink cartridge","teddy bear","doll","action figure","rag doll","marionette","sock puppet","jack-in-the-box","wind-up toy","model train","toy soldier","building blocks","Lego brick","rubiks cube","etch a sketch","slinky","view-master","magic 8-ball","whoopee cushion","water pistol","cap gun","conker","tiddlywinks","draughts","backgammon","cribbage board","snakes and ladders","ludo","jenga","board game","playing card","top trumps","triangle","cymbal","gong","cowbell","maracas","castanets","wood block"]
+    },
+    { key:"nature", label:"Nature", sub:"Living & wild", color:"var(--c-nature)", words:
+      ["volcano","glacier","hedgehog","sunflower","avalanche","jellyfish","rainbow","cactus","hurricane","dolphin","seaweed","chameleon","waterfall","mushroom","earthquake","coral reef","thunderstorm","platypus","dandelion","iceberg","quicksand","kangaroo","meteor","whirlpool","porcupine","bamboo","tornado","octopus","geyser","swamp","peacock","tsunami","fern","blizzard","firefly","canyon","lightning","tadpole","mangrove","stalactite","hummingbird","tumbleweed","seahorse","drought","pinecone","walrus","comet","marsh","sloth","narwhal","aurora","cobweb","acorn","meerkat","pelican","tarantula","eclipse","riverbed","moth","barnacle","flamingo","hailstone","toadstool","chrysalis","armadillo","wisteria","stingray","monsoon","antler","coconut","penguin","koala","panda","giraffe","elephant","rhinoceros","hippopotamus","crocodile","alligator","cobra","python","gecko","iguana","tortoise","starfish","lobster","crab","oyster","squid","eel","shark","whale","orca","otter","beaver","badger","mole","squirrel","chipmunk","raccoon","skunk","bat","owl","eagle","hawk","falcon","vulture","woodpecker","kingfisher","robin","swan","goose","heron","ostrich","emu","kiwi","toucan","parrot","cockatoo","nightingale","cricket","grasshopper","dragonfly","ladybird","caterpillar","butterfly","wasp","hornet","bumblebee","ant","termite","centipede","scorpion","slug","snail","earthworm","oak tree","willow","redwood","palm tree","ivy","lichen","algae","tulip","rose","daisy","orchid","lily","lavender","thistle","nettle","clover","mistletoe","holly","lotus","water lily","venus flytrap","birch","maple","fog","mist","dew","frost","sleet","drizzle","breeze","gale","cyclone","typhoon","sandstorm","heatwave","sunbeam","twilight","dawn","dusk","sinkhole","cave","cliff","plateau","sand dune","delta","lagoon","valley","summit","meadow","prairie","tundra","savanna","oasis","stream","rapids","crater","lava","lion","tiger","leopard","cheetah","jaguar","panther","lynx","cougar","wolf","fox","coyote","jackal","hyena","dingo","bear","polar bear","grizzly bear","anteater","pangolin","aardvark","warthog","wild boar","deer","elk","moose","reindeer","antelope","gazelle","impala","wildebeest","buffalo","bison","yak","ox","bull","goat","sheep","ram","lamb","pig","piglet","horse","foal","donkey","mule","zebra","camel","llama","alpaca","hare","rabbit","ferret","weasel","stoat","mink","mongoose","lemur","gibbon","orangutan","gorilla","chimpanzee","baboon","mandrill","marmoset","bushbaby","tapir","okapi","wombat","wallaby","possum","tasmanian devil","echidna","dugong","manatee","seal","sea lion","porpoise","humpback whale","blue whale","sperm whale","beluga","manta ray","hammerhead shark","great white shark","swordfish","marlin","tuna","salmon","trout","cod","haddock","mackerel","sardine","herring","carp","pike","perch","catfish","piranha","pufferfish","angelfish","clownfish","guppy","goldfish","koi carp","cuttlefish","nautilus","sea urchin","sea cucumber","sea anemone","sponge","plankton","krill","prawn","crayfish","limpet","mussel","scallop","cockle","whelk","swallow","swift","house martin","wren","finch","goldfinch","chaffinch","bullfinch","sparrowhawk","kestrel","buzzard","osprey","condor","albatross","seagull","tern","puffin","guillemot","cormorant","gannet","oystercatcher","curlew","sandpiper","plover","lapwing","snipe","pheasant","partridge","grouse","quail","turkey","guinea fowl","dove","pigeon","cuckoo","crane","ibis","spoonbill","egret","bittern","moorhen","coot","mallard","teal","mandarin duck","mute swan","canada goose","magpie","jay","jackdaw","rook","crow","raven","starling","blackbird","thrush","waxwing","wagtail","nuthatch","blue tit","great tit","goldcrest","lizard","skink","monitor lizard","komodo dragon","viper","adder","rattlesnake","boa constrictor","anaconda","black mamba","taipan","sidewinter","turtle","terrapin","frog","toad","newt","salamander","axolotl","bullfrog","tree frog","poison dart frog","honeybee","hoverfly","mayfly","damselfly","locust","praying mantis","stick insect","cockroach","weevil","glow-worm","silkworm","maggot","grub","larva","aphid","greenfly","midge","mosquito","gnat","horsefly","flea","louse","mite","tick","woodlouse","earwig","cicada","dung beetle","stag beetle","fir tree","spruce","pine tree","cedar","cypress","yew","larch","sycamore","beech","ash tree","elm","hazel","hawthorn","blackthorn","rowan","chestnut","walnut","poplar","magnolia","cherry blossom","apple tree","pear tree","olive tree","fig tree","ocelot","serval","caracal","wildcat","snow leopard","clouded leopard","fennec fox","arctic fox","red panda","sun bear","kinkajou","coati","civet","quokka","bilby","numbat","bandicoot","sugar glider","flying squirrel","aye-aye","tarsier","capuchin","howler monkey","spider monkey","squirrel monkey","proboscis monkey","macaque","silverback gorilla","bonobo","plaice","dover sole","halibut","turbot","monkfish","anglerfish","flying fish","mudskipper","remora","barracuda","moray eel","conger eel","electric eel","sea snake","leatherback turtle","hawksbill turtle","right whale","minke whale","pilot whale","sea otter","elephant seal","leopard seal","fur seal","golden eagle","bald eagle","harpy eagle","red kite","hen harrier","merlin","goshawk","tawny owl","barn owl","snowy owl","eagle owl","little owl","secretary bird","hoopoe","bee-eater","hornbill","quetzal","bird of paradise","lyrebird","kookaburra","kea","cassowary","rhea","grebe","avocet","godwit","redshank","turnstone","sanderling","skua","fulmar","shearwater","storm petrel","frigatebird","booby","leafcutter ant","army ant","fire ant","carpenter ant","mason bee","yellowjacket","sawfly","fruit fly","bluebottle","crane fly","caddisfly","lacewing","antlion","click beetle","ground beetle","tiger beetle","longhorn beetle","jewel beetle","rhinoceros beetle","goliath beetle","cockchafer","water boatman","pond skater","whirligig beetle","backswimmer","banyan","mahogany","teak","ebony","balsa","cork oak","silver birch","weeping willow","monkey puzzle tree","ginkgo","dogwood","laburnum","lilac","camellia","rhododendron","azalea","hydrangea","forsythia","buddleia","gardenia","oleander","bougainvillea","hibiscus","frangipani","protea","edelweiss","gentian","primrose","cowslip","celandine","forget-me-not","cornflower","ox-eye daisy","ragwort","teasel","cow parsley","hogweed","toadflax","valerian","meadowsweet","yarrow","tansy","chicory","comfrey","porcini","morel","oyster mushroom","shiitake","portobello","button mushroom","death cap","honey fungus","bracket fungus","stinkhorn","earthstar","coral fungus","slime mould","cirrus cloud","cumulus cloud","stratus cloud","cumulonimbus","mackerel sky","contrail","sun dog","brocken spectre","moonbow","ball lightning","heat haze"]
+    },
+    { key:"action", label:"Action", sub:"Verbs", color:"var(--c-action)", words:
+      ["juggling","sneezing","whispering","sprinting","tiptoeing","wrestling","hibernating","gargling","stumbling","yodelling","snorkelling","hitchhiking","meditating","procrastinating","ambushing","cartwheeling","marinating","eavesdropping","negotiating","improvising","trembling","saluting","squinting","unravelling","tickling","hovering","stampeding","whittling","ricocheting","plummeting","sauntering","flinching","haggling","waddling","fermenting","levitating","galloping","curtsying","smuggling","snoozing","bellowing","wobbling","pouncing","recycling","orbiting","demolishing","rehearsing","blushing","evaporating","somersaulting","hiccupping","parachuting","wincing","slithering","clapping","photobombing","moonwalking","untangling","balancing","daydreaming","hushing","ambling","backflipping","grovelling","serenading","paddling","fidgeting","knitting","sketching","doodling","snoring","yawning","stretching","shivering","sweating","blinking","winking","nodding","shrugging","pointing","waving","marching","skipping","hopping","crawling","tumbling","diving","floating","sinking","swimming","rowing","cycling","skiing","snowboarding","surfing","climbing","abseiling","boxing","fencing","bowling","dribbling","catching","throwing","kicking","tackling","refereeing","cheering","booing","applauding","gasping","sighing","sobbing","giggling","chuckling","cackling","humming","whistling","chanting","rapping","beatboxing","conducting","strumming","drumming","tap-dancing","twirling","pirouetting","breakdancing","headbanging","sleepwalking","teleporting","vanishing","shapeshifting","hypnotising","sculpting","painting","filming","typing","texting","scrolling","packing","gift-wrapping","gardening","weeding","mowing","digging","sawing","hammering","sanding","welding","decorating","vacuuming","mopping","dusting","ironing","folding","baking","frying","grilling","whisking","kneading","chopping","peeling","grating","bartending","tightrope walking","carving","engraving","embroidering","crocheting","quilting","weaving","spinning","darning","pruning","planting","sowing","harvesting","ploughing","herding","milking","shearing","saddling","trotting","cantering","rearing","bucking","neighing","braying","mooing","oinking","clucking","crowing","quacking","honking","hissing","growling","roaring","snarling","barking","howling","purring","meowing","chirping","tweeting","squawking","hooting","cooing","croaking","buzzing","warbling","trilling","leaping","bounding","vaulting","lunging","ducking","dodging","swerving","skidding","sliding","gliding","coasting","freewheeling","pedalling","reversing","parking","steering","accelerating","braking","drifting","revving","pushing","pulling","dragging","hauling","lifting","carrying","lugging","hoisting","heaving","shoving","nudging","prodding","poking","jabbing","swatting","slapping","smacking","whacking","thumping","punching","stomping","stamping","trampling","treading","pacing","striding","strutting","sashaying","prowling","creeping","sneaking","lurking","loitering","lingering","dawdling","dallying","meandering","wandering","rambling","trekking","hiking","backpacking","camping","orienteering","scrambling","bouldering","rappelling","canyoning","kayaking","canoeing","rafting","sailing","windsurfing","kitesurfing","waterskiing","wakeboarding","paddleboarding","punting","ferrying","cruising","yachting","fishing","angling","netting","trawling","harpooning","plunging","bellyflopping","cannonballing","backstroking","breaststroking","doggy-paddling","scuba diving","freediving","cooking","roasting","boiling","poaching","steaming","sauteing","stir-frying","barbecuing","toasting","buttering","spreading","slicing","dicing","mincing","mashing","pureeing","straining","draining","seasoning","garnishing","plating","serving","pouring","stirring","mixing","beating","rolling","shaping","moulding","glazing","icing","sprinkling","drizzling","pickling","curing","smoking","brewing","distilling","bottling","corking","uncorking","tasting","sipping","gulping","slurping","munching","nibbling","chewing","chomping","gnawing","crunching","swallowing","gorging","feasting","dining","snacking","grazing","salivating","cleaning","tidying","scrubbing","wiping","polishing","buffing","waxing","hoovering","sweeping","scouring","rinsing","wringing","hanging","pegging","drying","airing","laundering","washing","bathing","showering","soaking","lathering","towelling","moisturising","preening","grooming","brushing","combing","plaiting","braiding","curling","styling","trimming","clipping","mumbling","muttering","murmuring","stammering","stuttering","babbling","ranting","raving","waffling","nattering","chattering","prattling","jabbering","bickering","squabbling","arguing","debating","protesting","objecting","agreeing","disagreeing","bargaining","pleading","begging","imploring","persuading","convincing","coaxing","cajoling","flattering","complimenting","praising","boasting","bragging","gloating","sulking","pouting","moping","brooding","fretting","worrying","panicking","fussing","dithering","hesitating","acting","miming","impersonating","mimicking","imitating","unicycling","stilt-walking","plate-spinning","goalkeeping","defending","attacking","jogging","hurdling","long-jumping","high-jumping","pole-vaulting","shot-putting","discus-throwing","javelin-throwing","weightlifting","powerlifting","bench-pressing","deadlifting","squatting","planking","shadow-boxing","sparring","grappling","scrummaging","volleying","smashing","lobbing","rallying","putting","chipping","teeing","potting","cueing","batting","fielding","wicket-keeping","pitching","dunking","rebounding","blocking","passing","shooting","tagging","felting","dyeing","tie-dyeing","screen-printing","woodturning","upholstering","thatching","tiling","grouting","rendering","bricklaying","cementing","paving","roofing","guttering","brazing","riveting","forging","casting","glassblowing","candle-making","soap-making","bookbinding","caramelising","flambeing","blanching","parboiling","simmering","basting","braising","searing","charring","brining","preserving","canning","whipping","creaming","sifting","dredging","coating","breading","battering","deep-frying","deglazing","reducing","thickening","emulsifying","tempering","proving","skewering","spit-roasting","stapling","photocopying","laminating","invoicing","auditing","budgeting","forecasting","presenting","networking","delegating","brainstorming","troubleshooting","debugging","coding","programming","wiring","surveying","calibrating","installing","assembling","dismantling","servicing","repairing","maintaining","refuelling","recharging","jump-starting","towing","parallel-parking","chortling","guffawing","snorting","tittering","wheezing","whimpering","wailing","moaning","groaning","grunting","spluttering","choking","retching","gagging","coughing","belching","burping","gurgling","whooping","hollering","booming","shushing","tut-tutting","lip-smacking","tapping","pinching","stroking","patting","rubbing","scratching","twiddling","scribbling","scrawling","underlining","sharpening","creasing","tearing","ripping","crumpling","flattening","smoothing","squeezing","squishing","flipping","tossing","whirling","swirling","zigzagging","backtracking","retracing","circling","spiralling","handstanding","headstanding","forward-rolling","barrel-rolling","piggybacking","leapfrogging","hopscotching","teetering"]
+    },
+    { key:"world", label:"World", sub:"Places", color:"var(--c-world)", words:
+      ["the Sahara","Mount Everest","Venice","the Amazon","Antarctica","the Pyramids","Iceland","the Colosseum","Niagara Falls","the Serengeti","the Himalayas","the Vatican","a Norwegian fjord","Route 66","the Great Wall of China","the Bermuda Triangle","Silicon Valley","Times Square","Machu Picchu","Stonehenge","the Alps","Bali","the Australian Outback","Mount Fuji","the Grand Canyon","the River Nile","Tokyo","Cairo","Rio de Janeiro","Dubai","Prague","the Equator","the North Pole","the Great Barrier Reef","Loch Ness","the Suez Canal","Hollywood","Wall Street","the Eiffel Tower","the Leaning Tower of Pisa","the Taj Mahal","the Dead Sea","Kilimanjaro","Patagonia","the Galapagos","Pompeii","the Panama Canal","Buckingham Palace","the Statue of Liberty","Mount Rushmore","the Sydney Opera House","the Louvre","Chinatown","the Sahara Desert oasis","Reykjavik","a rainforest","the Gobi Desert","Silicon Roundabout","the London Underground","Easter Island","Paris","London","New York","Sydney","Rome","Barcelona","Amsterdam","Berlin","Moscow","Istanbul","Bangkok","Singapore","Mumbai","Beijing","Shanghai","Hong Kong","Seoul","Cape Town","Nairobi","Marrakesh","Edinburgh","Dublin","Lisbon","Athens","Vienna","Copenhagen","Stockholm","Oslo","Toronto","Vancouver","Los Angeles","San Francisco","Chicago","Las Vegas","New Orleans","Havana","Buenos Aires","Lima","Mexico City","Melbourne","Perth","Auckland","Jerusalem","Kyoto","Delhi","Australia","Japan","Brazil","Canada","Kenya","Peru","Italy","France","Germany","Spain","Greece","Norway","Sweden","Ireland","Scotland","Wales","India","China","Thailand","Vietnam","Morocco","Argentina","Chile","Mexico","Cuba","New Zealand","Switzerland","the Netherlands","Portugal","Turkey","Russia","Nigeria","South Africa","Africa","Asia","Europe","North America","South America","Oceania","Tuscany","Scandinavia","the Caribbean","Siberia","the Mediterranean","the Scottish Highlands","Big Ben","the Golden Gate Bridge","the Acropolis","the Kremlin","Angkor Wat","Petra","Christ the Redeemer","Uluru","the London Eye","the Shard","Tower Bridge","the Empire State Building","the Burj Khalifa","the Berlin Wall","the Thames","the Mississippi","the Ganges","the Danube","the Yangtze","the Seine","the Rhine","the Congo","the Mekong","the Matterhorn","Mont Blanc","Ben Nevis","Table Mountain","Mount Etna","the Andes","the Rockies","the Pyrenees","Snowdon","the South Pole","Naples","Milan","Turin","Florence","Genoa","Bologna","Seville","Valencia","Bilbao","Granada","Madrid","Porto","Marseille","Lyon","Nice","Bordeaux","Toulouse","Strasbourg","Munich","Hamburg","Cologne","Frankfurt","Dresden","Stuttgart","Zurich","Geneva","Basel","Brussels","Bruges","Antwerp","Rotterdam","The Hague","Utrecht","Ghent","Luxembourg","Warsaw","Krakow","Budapest","Bucharest","Belgrade","Zagreb","Sofia","Kiev","Minsk","Vilnius","Riga","Tallinn","St Petersburg","Vladivostok","Almaty","Tashkent","Tehran","Baghdad","Damascus","Beirut","Amman","Riyadh","Doha","Abu Dhabi","Muscat","Tel Aviv","Ankara","Casablanca","Tunis","Tripoli","Alexandria","Khartoum","Addis Ababa","Kampala","Kigali","Lagos","Accra","Abuja","Dakar","Bamako","Timbuktu","Kinshasa","Luanda","Harare","Lusaka","Gaborone","Windhoek","Johannesburg","Durban","Pretoria","Maputo","Karachi","Lahore","Islamabad","Dhaka","Kathmandu","Colombo","Kabul","Yangon","Hanoi","Ho Chi Minh City","Phnom Penh","Vientiane","Jakarta","Surabaya","Manila","Kuala Lumpur","Osaka","Nagoya","Sapporo","Hiroshima","Nagasaki","Taipei","Guangzhou","Shenzhen","Chengdu","Lhasa","Ulaanbaatar","Pyongyang","Busan","Christchurch","Adelaide","Canberra","Darwin","Cairns","Hobart","Honolulu","Anchorage","Seattle","Portland","Denver","Dallas","Houston","Austin","Miami","Atlanta","Boston","Philadelphia","Washington DC","Detroit","Nashville","Memphis","Phoenix","San Diego","Montreal","Ottawa","Calgary","Quebec City","Winnipeg","Bogota","Caracas","Quito","La Paz","Santiago","Montevideo","Brasilia","Sao Paulo","Cartagena","Panama City","San Jose","Guatemala City","Cancun","Acapulco","Kingston","Nassau","Ethiopia","Ghana","Tanzania","Uganda","Zimbabwe","Zambia","Botswana","Namibia","Mozambique","Madagascar","Greenland","Estonia","Latvia","Lithuania","Belarus","Ukraine","Romania","Bulgaria","Serbia","Slovenia","Slovakia","the Czech Republic","Austria","Belgium","Iran","Iraq","Israel","Lebanon","Jordan","Syria","Saudi Arabia","Qatar","Oman","Yemen","Afghanistan","Pakistan","Bangladesh","Sri Lanka","Nepal","Bhutan","Myanmar","Cambodia","Laos","Malaysia","Taiwan","Mongolia","North Korea","South Korea","Fiji","Samoa","Tonga","Papua New Guinea","Colombia","Venezuela","Ecuador","Bolivia","Uruguay","Paraguay","Jamaica","Haiti","the Bahamas","Barbados","Trinidad","Costa Rica","Panama","Nicaragua","Guatemala","Honduras","El Salvador","the Kalahari","the Atacama Desert","the Mojave Desert","the Namib Desert","the Arabian Desert","the Great Rift Valley","the Nile Delta","the Bay of Bengal","the Persian Gulf","the Red Sea","the Black Sea","the Caspian Sea","the Baltic Sea","the North Sea","the South China Sea","the Coral Sea","the Bering Strait","the Strait of Gibraltar","the English Channel","the Gulf of Mexico","the Atlantic Ocean","the Pacific Ocean","the Indian Ocean","the Arctic Ocean","Lake Victoria","Lake Baikal","Lake Titicaca","Lake Superior","Lake Geneva","the Great Lakes","the Everglades","the Steppes","the Pampas","the Sahel","the Great Sphinx","the Parthenon","the Pantheon","the Forbidden City","Dusseldorf","Leipzig","Nuremberg","Bremen","Hanover","Bonn","Salzburg","Innsbruck","Graz","Bergen","Trondheim","Gothenburg","Malmo","Aarhus","Tampere","Bratislava","Ljubljana","Sarajevo","Skopje","Tirana","Yerevan","Tbilisi","Baku","Astana","Bishkek","Wuhan","Nanjing","Hangzhou","Qingdao","Harbin","Kunming","Macau","Fukuoka","Yokohama","Kobe","Incheon","Daegu","Hyderabad","Bangalore","Chennai","Kolkata","Jaipur","Agra","Varanasi","Pune","Peshawar","Kandahar","Isfahan","Shiraz","Basra","Aleppo","Bethlehem","Nazareth","Aqaba","Luxor","Aswan","Giza","Fez","Rabat","Tangier","Agadir","Oran","Benghazi","Zanzibar","Mombasa","Arusha","Bulawayo","Livingstone","Port Elizabeth","Kazakhstan","Uzbekistan","Turkmenistan","Kyrgyzstan","Tajikistan","Azerbaijan","Armenia","Albania","Montenegro","Bosnia","Kosovo","Moldova","Cyprus","Malta","Monaco","Andorra","Liechtenstein","San Marino","Brunei","the Maldives","the Seychelles","Mauritius","Cape Verde","the Gambia","Sierra Leone","Liberia","the Ivory Coast","Guinea","Senegal","Mauritania","Chad","Sudan","Eritrea","Djibouti","Somalia","Rwanda","Burundi","Malawi","Lesotho","Eswatini","Angola","Gabon","Cameroon","Togo","Benin","Burkina Faso","the Sydney Harbour Bridge","the Twelve Apostles","the Nazca Lines","Chichen Itza","Teotihuacan","Borobudur","the Potala Palace","the Grand Palace","the Merlion","the Manneken Pis","the Anne Frank House","the Rijksmuseum","the Guggenheim","the British Museum","the Natural History Museum","the Tate Modern","the National Gallery","Madame Tussauds","Disneyland","Universal Studios","the Roman Forum","Herculaneum","the Amalfi Coast","Lake Como","Lake Garda","the Cinque Terre","the Black Forest","the Rhine Valley","the Loire Valley","the Costa del Sol","the Algarve","the Ring of Kerry","the Lake District","the Peak District","the Yorkshire Dales","the Brecon Beacons","Snowdonia","the Isle of Skye","the Orkney Islands","the Shetland Islands","the Isle of Wight","the Isle of Man","the Irrawaddy","the Chao Phraya","the Don","the Dnieper","the Vistula","the Ebro","the Garonne","the Rhone","the Moselle","Lake Windermere","Loch Lomond","Lake Constance","Lake Balaton","Lake Tahoe","Crater Lake","the Aral Sea","Lake Malawi","Lake Tanganyika","the Sea of Galilee","the Sea of Japan","the Yellow Sea","the Adriatic Sea","the Aegean Sea"]
+    },
+    { key:"person", label:"Person", sub:"People & roles", color:"var(--c-person)", words:
+      ["Einstein","Cleopatra","Shakespeare","Beethoven","Napoleon","Gandhi","Picasso","Isaac Newton","Mozart","Leonardo da Vinci","Marie Curie","Elvis","Beyonce","Charles Darwin","Houdini","Amelia Earhart","Nelson Mandela","Frida Kahlo","Freddie Mercury","Steve Jobs","Charlie Chaplin","Joan of Arc","Galileo","David Attenborough","Serena Williams","Usain Bolt","Stephen Hawking","Walt Disney","Bob Marley","Vincent van Gogh","Alfred Hitchcock","Marilyn Monroe","Muhammad Ali","Taylor Swift","the Pope","a lifeguard","a plumber","a referee","a beekeeper","a magician","an astronaut","a lumberjack","a lighthouse keeper","a ballerina","a firefighter","a fortune teller","a snake charmer","a bus driver","a librarian","a stand-up comedian","a tattoo artist","a scuba diver","a chess grandmaster","a weather forecaster","a mime","a sumo wrestler","a clown","a paparazzo","a park ranger","a sommelier","Queen Elizabeth II","King Charles","Princess Diana","Prince William","Prince Harry","Kate Middleton","David Beckham","Adele","Ed Sheeran","Elton John","David Bowie","Mr Bean","Stephen Fry","Ricky Gervais","Idris Elba","Judi Dench","Emma Watson","Daniel Craig","Banksy","Charles Dickens","Jane Austen","J.K. Rowling","Agatha Christie","Alan Turing","Lewis Hamilton","Andy Murray","Gordon Ramsay","Simon Cowell","Winston Churchill","Florence Nightingale","the Beatles","Steve Irwin","Kylie Minogue","Hugh Jackman","Nicole Kidman","Cate Blanchett","Chris Hemsworth","Margot Robbie","Russell Crowe","Ned Kelly","Shane Warne","Cathy Freeman","Dame Edna","Paul Hogan","Olivia Newton-John","the Wiggles","Michael Jackson","Madonna","Lady Gaga","Rihanna","Bob Dylan","Prince","Dolly Parton","Frank Sinatra","Whitney Houston","Meryl Streep","Tom Hanks","Leonardo DiCaprio","Brad Pitt","Angelina Jolie","Morgan Freeman","Robert De Niro","Keanu Reeves","Dwayne Johnson","Will Smith","Jackie Chan","Audrey Hepburn","Oprah Winfrey","Elon Musk","Bill Gates","Abraham Lincoln","Julius Caesar","Genghis Khan","Christopher Columbus","Mother Teresa","Martin Luther King","Nikola Tesla","Sigmund Freud","Cristiano Ronaldo","Lionel Messi","Michael Jordan","Pele","Diego Maradona","Tiger Woods","Simone Biles","Roger Federer","Iron Man","Batman","Superman","Spider-Man","Harry Potter","Darth Vader","Sherlock Holmes","James Bond","Homer Simpson","SpongeBob SquarePants","Mickey Mouse","Yoda","Shrek","Peter Pan","Willy Wonka","Mary Poppins","Gandalf","Wonder Woman","Captain America","the Hulk","Indiana Jones","Forrest Gump","Buzz Lightyear","Elsa","Winnie the Pooh","Paddington Bear","Scooby-Doo","Cinderella","Dracula","King Kong","Godzilla","Robin Hood","Tarzan","Pikachu","Mario","Sonic the Hedgehog","Barbie","the Grinch","Voldemort","Jack Sparrow","the Joker","Hermione Granger","a tour guide","a stunt double","a ventriloquist","a taxidermist","Aristotle","Plato","Socrates","Alexander the Great","Attila the Hun","Marco Polo","Vasco da Gama","Ferdinand Magellan","Captain Cook","Ernest Shackleton","Roald Amundsen","Neil Armstrong","Buzz Aldrin","Yuri Gagarin","Christopher Wren","Michelangelo","Raphael","Rembrandt","Claude Monet","Salvador Dali","Andy Warhol","Henri Matisse","Auguste Rodin","Bach","Handel","Vivaldi","Chopin","Tchaikovsky","Wagner","Verdi","Puccini","Debussy","Edward Elgar","Gustav Holst","Stravinsky","Leo Tolstoy","Dostoevsky","Anton Chekhov","Ernest Hemingway","Mark Twain","Oscar Wilde","George Orwell","Roald Dahl","C.S. Lewis","J.R.R. Tolkien","Lewis Carroll","Emily Bronte","Charlotte Bronte","Virginia Woolf","Sylvia Plath","Maya Angelou","Emily Dickinson","T.S. Eliot","William Wordsworth","Lord Byron","John Keats","Robert Burns","Dylan Thomas","Rudyard Kipling","Arthur Conan Doyle","H.G. Wells","Jules Verne","Mary Shelley","Bram Stoker","Edgar Allan Poe","Franz Kafka","James Joyce","Michael Faraday","Charles Babbage","Ada Lovelace","Louis Pasteur","Gregor Mendel","Rosalind Franklin","Jane Goodall","Carl Sagan","Katherine Johnson","Grace Hopper","Tim Berners-Lee","Margaret Thatcher","Tony Blair","David Cameron","Boris Johnson","Barack Obama","George Washington","Thomas Jefferson","Benjamin Franklin","Theodore Roosevelt","John F Kennedy","Ronald Reagan","Bill Clinton","Angela Merkel","Charles de Gaulle","Che Guevara","Fidel Castro","Vladimir Lenin","Joseph Stalin","Mao Zedong","Emmeline Pankhurst","Rosa Parks","Malala Yousafzai","the Dalai Lama","Desmond Tutu","Jacinda Ardern","Queen Victoria","Henry VIII","Elizabeth I","Mary Queen of Scots","William the Conqueror","Richard the Lionheart","Guy Fawkes","Oliver Cromwell","William Wallace","Robin Williams","Jim Carrey","Eddie Murphy","John Cleese","Michael Palin","Peter Sellers","Cary Grant","James Dean","Humphrey Bogart","Clint Eastwood","Jack Nicholson","Robert Redford","Paul Newman","Sean Connery","Roger Moore","Pierce Brosnan","Julia Roberts","Sandra Bullock","Jennifer Aniston","Scarlett Johansson","Emma Stone","Jennifer Lawrence","Anne Hathaway","Natalie Portman","Charlize Theron","Halle Berry","Whoopi Goldberg","Samuel L Jackson","Benedict Cumberbatch","Tom Hardy","Christian Bale","Hugh Grant","Colin Firth","Kate Winslet","Helena Bonham Carter","Maggie Smith","Ian McKellen","Patrick Stewart","Anthony Hopkins","Michael Caine","John Lennon","Paul McCartney","George Harrison","Ringo Starr","Mick Jagger","Keith Richards","Jimi Hendrix","Eric Clapton","Bob Geldof","Sting","Phil Collins","George Michael","Robbie Williams","Amy Winehouse","Dua Lipa","Harry Styles","Sam Smith","Stormzy","Kurt Cobain","Bruce Springsteen","Stevie Wonder","Aretha Franklin","Ray Charles","James Brown","Marvin Gaye","Tina Turner","Diana Ross","Michael Buble","Snoop Dogg","Eminem","Jay-Z","Kanye West","Bruno Mars","Justin Bieber","Justin Timberlake","Britney Spears","Christina Aguilera","Katy Perry","Miley Cyrus","Ariana Grande","Billie Eilish","Shakira","Luciano Pavarotti","George Best","Bobby Charlton","Bobby Moore","Gary Lineker","Wayne Rooney","Harry Kane","Marcus Rashford","Steven Gerrard","Frank Lampard","Zinedine Zidane","Ronaldinho","Neymar","Kylian Mbappe","Johan Cruyff","Thierry Henry","Gareth Bale","Ryan Giggs","Eric Cantona","Jurgen Klopp","Pep Guardiola","Alex Ferguson","Jose Mourinho","Mike Tyson","Floyd Mayweather","Anthony Joshua","Tyson Fury","Jack Nicklaus","Rory McIlroy","Steffi Graf","Martina Navratilova","Bjorn Borg","John McEnroe","Rafael Nadal","Novak Djokovic","Emma Raducanu","Venus Williams","Billie Jean King","Jonny Wilkinson","Don Bradman","Ricky Ponting","Ian Botham","Andrew Flintoff","Ben Stokes","Sachin Tendulkar","Brian Lara","Ayrton Senna","Michael Schumacher","Jenson Button","Max Verstappen","Valentino Rossi","Evel Knievel","Jesse Owens","Carl Lewis","Jessica Ennis-Hill","Bradley Wiggins","Chris Hoy","Steve Redgrave","Ian Thorpe","ABBA","Little Richard","the Bee Gees","Buddy Holly","Vermeer","Fleetwood Mac","Jerry Lee Lewis","Caravaggio","the Eagles","Roy Orbison","Botticelli","the Beach Boys","the Everly Brothers","Titian","Simon and Garfunkel","Ozzy Osbourne","Goya","Rod Stewart","Black Sabbath","Velazquez","Van Morrison","Iron Maiden","J.M.W. Turner","Leonard Cohen","Metallica","Constable","Joni Mitchell","Guns N' Roses","Gainsborough","Carole King","Bon Jovi","Hogarth","Cat Stevens","Aerosmith","Cezanne","Neil Diamond","Deep Purple","Gauguin","Barry Manilow","Motorhead","Toulouse-Lautrec","Cher","the Kinks","Seurat","Celine Dion","the Clash","Degas","Mariah Carey","the Sex Pistols","Renoir","Kate Bush","the Ramones","Gustav Klimt","Annie Lennox","the Cure","Egon Schiele","Debbie Harry","Depeche Mode","Edvard Munch","Stevie Nicks","New Order","Kandinsky","Gwen Stefani","the Smiths","Mondrian","Pink","Morrissey","Joan Miro","Alicia Keys","R.E.M.","Rene Magritte","Norah Jones","Red Hot Chili Peppers","Marc Chagall","Lana Del Rey","Xabi Alonso","Andres Iniesta","Xavi","Sergio Ramos","Iker Casillas","Luis Suarez","Sadio Mane","Zlatan Ibrahimovic","Erling Haaland","Mohamed Salah","Luka Modric","Sergio Aguero","Andrea Pirlo","Paolo Maldini","Francesco Totti","Roberto Baggio","Gianluigi Buffon","Alessandro Del Piero","Karim Benzema","Eden Hazard","Virgil van Dijk","Robert Lewandowski","Kevin De Bruyne","Didier Drogba","Samuel Eto'o","Foo Fighters","Modigliani","Michael Owen","Lorde","Green Day","Edward Hopper","Alan Shearer","Sia","the Killers","Jackson Pollock","Paul Scholes","Florence Welch","Arctic Monkeys","Mark Rothko","Dennis Bergkamp","Sinead O'Connor","Muse","Roy Lichtenstein","Patrick Vieira","Duran Duran","Gorillaz","Jean-Michel Basquiat","Rio Ferdinand","Wham","the Prodigy","Keith Haring","John Terry","Culture Club","the Chemical Brothers","Georgia O'Keeffe","Ashley Cole","Eurythmics","Fatboy Slim","Norman Rockwell","Peter Crouch","Tears for Fears","Daft Punk","Damien Hirst","Jamie Carragher","the Police","David Guetta","Tracey Emin","Sol Campbell","Dire Straits","Avicii","David Hockney","Roberto Carlos","Genesis","Calvin Harris","Lucian Freud","Cafu","the Doors","Kraftwerk","Francis Bacon","Kaka","Louis Armstrong","Ella Fitzgerald","Miles Davis","Nina Simone","Duke Ellington","John Coltrane","Billie Holiday","B.B. King","Nat King Cole","Chuck Berry","Tupac","Dr Dre","Nas","Johnny Cash","Willie Nelson","Ravi Shankar","Fela Kuti","Steven Spielberg","Martin Scorsese","Quentin Tarantino","Christopher Nolan","Tim Burton","Akira Kurosawa","Coco Chanel","Christian Dior","Vivienne Westwood","Alexander McQueen","Fred Astaire","Ginger Rogers","Gene Kelly"]
+    },
+    { key:"random", label:"Random", sub:"Wild card", color:"var(--c-random)", words:
+      ["gravity","karma","deja vu","jet lag","honeymoon","insomnia","gossip","nostalgia","boredom","an echo","a shadow","an allergy","a souvenir","a curfew","a riddle","a deadline","superstition","a jetpack","a mixtape","a loophole","a blackout","wanderlust","a doppelganger","a rollercoaster","karaoke","a pinata","checkmate","a cliffhanger","a spoiler","brain freeze","a tongue twister","a poker face","the cold shoulder","a wild goose chase","the elephant in the room","a red herring","a plot twist","a sixth sense","second wind","a comfort zone","a bucket list","the silent treatment","a leap year","a plot hole","a guilty pleasure","a pep talk","cabin fever","a hat-trick","a mic drop","stage fright","a food coma","a group chat","a spoiler alert","the friend zone","a power nap","a slippery slope","a hidden talent","cold feet","a happy accident","a double take","a rain check","a piece of cake","a couch potato","a bookworm","a night owl","an early bird","a party animal","a control freak","a drama queen","a copycat","a scapegoat","a daredevil","a busybody","a tearjerker","a page-turner","a nail-biter","a showstopper","a game changer","a deal breaker","a turning point","a blessing in disguise","the last straw","a needle in a haystack","a ticking time bomb","butterflies in your stomach","a frog in your throat","a skeleton in the closet","a bull in a china shop","the calm before the storm","a light at the end of the tunnel","a diamond in the rough","an open secret","a white lie","a pipe dream","a leap of faith","a fresh start","a close call","a lucky break","a rite of passage","a midlife crisis","writer's block","FOMO","an inside joke","a running gag","Murphy's law","a catch-22","a paradox","a mirage","an illusion","a premonition","a hunch","willpower","adrenaline","serendipity","an epiphany","small talk","a cameo","a sequel","a prequel","a spin-off","a flashback","a montage","a cheat code","a power-up","an easter egg","a hangover","a sugar rush","a brainwave","a lightbulb moment","a wardrobe malfunction","a facepalm","a palindrome","an anagram","an optical illusion","a magic trick","a chain reaction","a domino effect","a snowball effect","a gut feeling","a false alarm","a plot device","a storm in a teacup","a wolf in sheep's clothing","a fish out of water","the tip of the iceberg","a drop in the ocean","the whole nine yards","the last laugh","a bolt from the blue","a sight for sore eyes","a slap on the wrist","a pat on the back","a shot in the dark","a stab in the back","a breath of fresh air","a change of heart","a flash in the pan","a house of cards","a can of worms","a hot potato","the red carpet","a green thumb","a golden opportunity","a silver lining","a rough patch","a level playing field","a smooth operator","a lost cause","a foregone conclusion","a done deal","a no-brainer","a happy medium","a grey area","a blank slate","a clean sweep","a helping hand","a shoulder to cry on","an old flame","a blind date","a whirlwind romance","a love triangle","a plus-one","a wingman","a third wheel","a party pooper","a wet blanket","a killjoy","a stick in the mud","a fair-weather friend","a partner in crime","a soulmate","a kindred spirit","a lone wolf","a black sheep","a teacher's pet","a class clown","a know-it-all","a goody two-shoes","a nervous wreck","a bundle of nerves","a hot mess","a loose cannon","a live wire","a nest egg","a windfall","pocket money","a shopping spree","buyer's remorse","a bargain","a rip-off","a knock-off","a hand-me-down","a keepsake","an heirloom","a memento","a time capsule","infinity","eternity","a coincidence","fate","destiny","dumb luck","a jinx","a curse","a blessing","a miracle","a phenomenon","a mystery","an enigma","a conundrum","a dilemma","a predicament","a stalemate","a standoff","a truce","a ceasefire","a compromise","a consensus","a landslide victory","a photo finish","a dead heat","a tiebreaker","sudden death","extra time","injury time","half-time","a rematch","a comeback","an underdog","a dark horse","a front-runner","a long shot","a sure thing","the favourite","euphoria","bliss","contentment","serenity","melancholy","despair","dread","heartbreak","homesickness","seasickness","vertigo","claustrophobia","arachnophobia","goosebumps","a shiver","a tingle","pins and needles","a cramp","a stitch","a bruise","a graze","a scar","a blister","a wrinkle","a dimple","a freckle","a birthmark","bedhead","a meme","a hashtag","a selfie","a filter","a livestream","a podcast","a playlist","a screensaver","a ringtone","a voicemail","a typo","a spam email","a pop-up","a paywall","a firewall","a password","a captcha","a QR code","a barcode","a loading screen","a blue screen","a glitch","a bug","a troll","an influencer","a subscriber","a follower","a read receipt","a left swipe","a match","a catfish","a hard launch","a binge-watch","a boxset","a season finale","a post-credits scene","a jump scare","the fourth wall","an anti-hero","a sidekick","a henchman","a mastermind","a nemesis","an alter ego","a trump card","a bluff","a jackpot","a full house","a royal flush","snake eyes","a monopoly","an own goal","a penalty","a red card","a yellow card","a time-out","a slam dunk","a home run","a hole in one","a bullseye","a knockout","a countdown","a blue moon","a solar eclipse","a lunar eclipse","an equinox","a solstice","high noon","the witching hour","the crack of dawn","the eleventh hour","a milestone","a housewarming","a reunion","a send-off","a homecoming","a graduation","a retirement","a promotion","a pay rise","a bonus","a golden handshake","a gap year","a sabbatical","a staycation","a road trip","a pilgrimage","an expedition","a safari","a package holiday","a city break","a layover","a red-eye flight","a plot armour","a wild card","Titanic","Jaws","Star Wars","The Godfather","Jurassic Park","The Lion King","Frozen","Avatar","The Matrix","Gladiator","Braveheart","Rocky","Grease","Ghostbusters","Back to the Future","E.T.","Home Alone","The Shawshank Redemption","Pulp Fiction","Fight Club","Inception","The Dark Knight","Toy Story","Finding Nemo","Despicable Me","The Sound of Music","Dirty Dancing","Pretty Woman","Mamma Mia","Bridget Jones's Diary","Love Actually","Notting Hill","Four Weddings and a Funeral","The Full Monty","Slumdog Millionaire","Bohemian Rhapsody","La La Land","The Greatest Showman","Mad Max","The Terminator","Alien","Die Hard","Mission Impossible","Pirates of the Caribbean","The Hunger Games","Twilight","The Lord of the Rings","The Hobbit","The Avengers","Barbie","Oppenheimer","Top Gun","The Breakfast Club","Ferris Bueller's Day Off","Men in Black","Mrs Doubtfire","Jumanji","The Wolf of Wall Street","Forrest Gump","The Silence of the Lambs","Casablanca","Psycho","The Exorcist","The Shining","Halloween","Friends","The Simpsons","Game of Thrones","Breaking Bad","The Office","Stranger Things","The Crown","Downton Abbey","Doctor Who","Sherlock","Peaky Blinders","Fawlty Towers","Only Fools and Horses","Blackadder","The Great British Bake Off","Strictly Come Dancing","EastEnders","Coronation Street","Emmerdale","Neighbours","Home and Away","Britain's Got Talent","Love Island","Big Brother","Gogglebox","Top Gear","Planet Earth","The Walking Dead","The Sopranos","Seinfeld","Frasier","Cheers","The Fresh Prince of Bel-Air","Baywatch","Grey's Anatomy","The Big Bang Theory","How I Met Your Mother","Modern Family","Brooklyn Nine-Nine","Parks and Recreation","Mad Men","Lost","Prison Break","Dexter","Money Heist","Squid Game","Ted Lasso","Fleabag","The Witcher","Bridgerton","Wednesday","Black Mirror","Rick and Morty","Sesame Street","Pokemon","The X-Files","Twin Peaks","Happy Days","The Godfather Part II","Goodfellas","Scarface","The Departed","Heat","No Country for Old Men","The Big Lebowski","Fargo","Reservoir Dogs","Kill Bill","Django Unchained","Schindler's List","Saving Private Ryan","Apocalypse Now","Platoon","Full Metal Jacket","Dunkirk","1917","The Revenant","American Beauty","Se7en","Gone Girl","Memento","Interstellar","Tenet","The Prestige","Shutter Island","The Green Mile","The Truman Show","Eternal Sunshine of the Spotless Mind","Little Miss Sunshine","Lost in Translation","The Grand Budapest Hotel","Amelie","Life is Beautiful","Cinema Paradiso","City of God","Parasite","Spirited Away","My Neighbour Totoro","Princess Mononoke","The Princess Bride","The Goonies","Stand By Me","The NeverEnding Story","Labyrinth","Hook","Beetlejuice","Edward Scissorhands","The Nightmare Before Christmas","The Wire","The Handmaids Tale","Chernobyl","Band of Brothers","The Last of Us","Succession","The White Lotus","Ozark","Better Call Saul","House of Cards","The Queens Gambit","Line of Duty","Broadchurch","Luther","Midsomer Murders","Poirot","Death in Paradise","Call the Midwife","The Inbetweeners","Peep Show","The IT Crowd","Father Ted","Gavin and Stacey","Absolutely Fabulous","The Vicar of Dibley","Dads Army","Yes Minister","The Thick of It","Have I Got News for You","Taskmaster","University Challenge","The Chase","Pointless","Who Wants to Be a Millionaire","Catchphrase","Family Fortunes","The Crystal Maze","spaghetti bolognese","fish and chips","a full English breakfast","a Sunday roast","a bacon sandwich","a ploughmans lunch","a cream tea","a Cornish pasty","a scotch egg","a pork pie","bangers and mash","toad in the hole","shepherds pie","a beef Wellington","a Yorkshire pudding","a sticky toffee pudding","a Victoria sponge","a trifle","an Eton mess","a banoffee pie","a Bakewell tart","a scone","a crumpet","a hot cross bun","a mince pie","a curry","a kebab","sushi","a taco","a burrito","nachos","guacamole","lasagne","risotto","paella","a croissant","a pretzel","a bagel","a doughnut","a cupcake","candyfloss","a toffee apple","a knickerbocker glory"]
+    }
+  ];
+
+  const $ = s => document.querySelector(s);
+  const catByKey = k => CATS.find(c=>c.key===k);
+
+  /* ---------------- state ---------------- */
+  let roundSecs = 30;
+  let current = null;      // category key
+  let pool = [];           // shuffled available words for this round
+  let currentWord = "";
+  let got = 0;
+  let turnResults = new Map(); // word -> 'got' | 'passed' (one entry per word, latest wins)
+  let passUsed = false, passedWord = null; // one pass allowed per turn; passedWord is retrievable any time
+  let stashedWord = null;   // the deck card set aside while you look at the passed card
+  let viewingPassed = false;// true while the passed card is on screen
+  let ticker = null, endAt = 0, audio = null, lastBeepSec = null;
+
+  /* ---------------- storage helpers ---------------- */
+  const usedKey = k => "articulate.used."+k;
+  const customKey = k => "articulate.custom."+k;
+  function load(key){ try{ return JSON.parse(localStorage.getItem(key)||"[]"); }catch(e){ return []; } }
+  function save(key,arr){ try{ localStorage.setItem(key, JSON.stringify(arr)); }catch(e){} }
+
+  function allWords(k){
+    const c = catByKey(k);
+    return c.words.concat(load(customKey(k)));
+  }
+  function remainingCount(k){
+    const used = new Set(load(usedKey(k)));
+    return allWords(k).filter(w=>!used.has(w)).length;
+  }
+
+  /* ---------------- toast ---------------- */
+  let toastT=null;
+  function toast(msg){
+    const el=$("#toast"); el.textContent=msg; el.classList.add("show");
+    clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("show"),2600);
+  }
+
+  /* ---------------- build home ---------------- */
+  function buildGrid(){
+    const g=$("#catGrid"); g.innerHTML="";
+    CATS.forEach(c=>{
+      const left = remainingCount(c.key);
+      const b=document.createElement("button");
+      b.className="cat"; b.style.setProperty("--cc", c.color);
+      b.innerHTML =
+        `<span class="swatch"></span><span class="blob"></span>`+
+        `<span class="name">${c.label}</span>`+
+        `<span class="sub">${c.sub}</span>`+
+        `<span class="count">${left} cards ready</span>`;
+      b.addEventListener("click",()=>openReady(c.key));
+      g.appendChild(b);
+    });
+  }
+
+  function setAccent(k){
+    const c=catByKey(k);
+    // resolve the css var to a concrete colour for color-mix + shadows
+    document.documentElement.style.setProperty("--accent", getComputedStyle(document.documentElement).getPropertyValue(c.color.replace("var(","").replace(")","")).trim() || "#9b6bff");
+  }
+
+  /* ---------------- screens ---------------- */
+  function show(id){
+    document.querySelectorAll(".screen").forEach(s=>s.classList.remove("on"));
+    $("#s-"+id).classList.add("on");
+    window.scrollTo(0,0);
+  }
+
+  function openReady(k){
+    current=k; setAccent(k);
+    const c=catByKey(k);
+    $("#readyCat").textContent=c.label;
+    document.body.classList.remove("flooded","lowtime");
+    show("ready");
+  }
+
+  /* ---------------- round ---------------- */
+  // unbiased integer 0..n-1 from the crypto RNG (genuinely random dice/spins)
+  function rnd(n){ const max=Math.floor(4294967296/n)*n; const a=new Uint32Array(1); do{ crypto.getRandomValues(a); }while(a[0]>=max); return a[0]%n; }
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=rnd(i+1); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+  function buildPool(){
+    const used=new Set(load(usedKey(current)));
+    let avail=allWords(current).filter(w=>!used.has(w));
+    if(avail.length===0){
+      // whole deck seen \u2014 reshuffle from scratch
+      save(usedKey(current),[]);
+      avail=allWords(current).slice();
+      toast("Whole "+catByKey(current).label+" deck seen \u2014 reshuffling!");
+    }
+    pool=shuffle(avail);
+  }
+
+  function renderWord(isRetry){
+    const w=$("#wordEl");
+    w.textContent=currentWord;
+    w.classList.remove("pop"); void w.offsetWidth; w.classList.add("pop");
+    $("#retryTag").classList.toggle("show", !!isRetry);
+  }
+  function nextWord(){
+    if(pool.length===0) buildPool();
+    currentWord = pool.pop();
+    viewingPassed = false;
+    renderWord(false);
+  }
+  function updateStash(){
+    const bar=$("#stashBtn");
+    if(viewingPassed){
+      bar.classList.add("show");
+      bar.innerHTML='&larr; Back to the deck';
+    } else if(passedWord){
+      bar.classList.add("show");
+      bar.innerHTML='&#8617; Go back to the card you passed';
+    } else {
+      bar.classList.remove("show");
+    }
+  }
+  function toggleStash(){
+    if(!passedWord) return;
+    if(!viewingPassed){
+      stashedWord = currentWord;      // set the current deck card aside
+      currentWord = passedWord;
+      viewingPassed = true;
+      renderWord(true);               // show it with the "another go" badge
+    } else {
+      viewingPassed = false;          // return to where you were in the deck
+      if(stashedWord){ currentWord = stashedWord; stashedWord = null; renderWord(false); }
+      else nextWord();
+    }
+    updateStash();
+  }
+
+  function startRound(){
+    buildPool();
+    got=0; turnResults=new Map(); passUsed=false; passedWord=null;
+    stashedWord=null; viewingPassed=false;
+    $("#scGot").textContent="0";
+    updatePassBtn();
+    updateStash();
+    $("#retryTag").classList.remove("show");
+    $("#playCat").textContent=catByKey(current).label;
+    document.body.classList.add("flooded");
+    document.body.classList.remove("lowtime");
+    show("play");
+    initAudio();
+    nextWord();
+    lastBeepSec=null;
+    clearInterval(ticker); ticker=null;
+    if(roundSecs>0){
+      endAt = Date.now() + roundSecs*1000;
+      $("#ringNum").textContent = roundSecs;
+      updateRing(roundSecs, roundSecs);
+      ticker=setInterval(tick, 100);
+    } else {
+      $("#ringNum").textContent = "\u221e";  // no-timer freeplay
+      updateRing(1, 1);
+    }
+  }
+
+  function tick(){
+    const remMs = Math.max(0, endAt - Date.now());
+    const rem = remMs/1000;
+    const secs = Math.ceil(rem);
+    $("#ringNum").textContent = secs;
+    updateRing(rem, roundSecs);
+    if(secs<=5){ document.body.classList.add("lowtime"); if(secs!==lastBeepSec && secs>0){ beep(secs===1?880:660,0.09);} }
+    lastBeepSec=secs;
+    if(remMs<=0){
+      clearInterval(ticker); ticker=null;
+      document.body.classList.remove("lowtime");
+      if(navigator.vibrate) navigator.vibrate([120,60,120]);
+      beep(440,0.25);
+      showBuzzer();   // buzzer-beater: let them claim the card that was in the air
+    }
+  }
+  function showBuzzer(){ $("#buzzWord").textContent=currentWord; $("#buzzOv").classList.add("on"); }
+  function buzzerGot(){ turnResults.set(currentWord,"got"); commitUsed(currentWord); if(currentWord===passedWord) passedWord=null; $("#buzzOv").classList.remove("on"); endRound(true,true); }
+  function buzzerMiss(){ $("#buzzOv").classList.remove("on"); endRound(true,true); }
+
+  const R=52, CIRC=2*Math.PI*R;
+  function updateRing(rem,total){
+    const p=$("#ringProg");
+    p.style.strokeDasharray=CIRC;
+    p.style.strokeDashoffset = CIRC*(1 - Math.max(0,rem)/total);
+  }
+
+  function commitUsed(word, key){
+    key = key || current;
+    const u=load(usedKey(key));
+    if(!u.includes(word)){ u.push(word); save(usedKey(key),u); }
+  }
+  function refreshScore(){
+    let g=0; turnResults.forEach(v=>{ if(v==="got") g++; });
+    got=g; $("#scGot").textContent=g;
+  }
+  function updatePassBtn(){
+    const b=$("#passBtn");
+    if(passUsed){
+      b.classList.add("spent"); b.disabled=true;
+      b.innerHTML='Pass used<small>you\u2019ll get it back</small>';
+    } else {
+      b.classList.remove("spent"); b.disabled=false;
+      b.innerHTML='Pass<small>once per turn</small>';
+    }
+  }
+
+  function gotCard(){
+    turnResults.set(currentWord,"got");   // overwrites a prior "passed" if this was the retry
+    commitUsed(currentWord);
+    const solvedPassed = (currentWord===passedWord);
+    if(solvedPassed) passedWord=null;     // stop offering the retry
+    refreshScore();
+    if(viewingPassed && solvedPassed && stashedWord){
+      // solved the retried card -> drop back onto the card you were describing
+      currentWord=stashedWord; stashedWord=null; viewingPassed=false; renderWord(false);
+    } else {
+      nextWord();
+    }
+    updateStash();
+  }
+
+  function passCard(){
+    if(passUsed) return;                  // only one pass per turn
+    passUsed=true; passedWord=currentWord;
+    turnResults.set(currentWord,"passed");
+    updatePassBtn();
+    nextWord();                           // move on; the passed card waits under "Go back"
+    updateStash();
+  }
+
+  function endRound(timeUp, quiet){
+    clearInterval(ticker); ticker=null;
+    paused=false; $("#pauseOv").classList.remove("on"); $("#buzzOv").classList.remove("on");
+    if(!quiet){ if(navigator.vibrate) navigator.vibrate(timeUp?[120,60,120]:60); if(timeUp) beep(440,0.25); }
+    document.body.classList.remove("flooded","lowtime");
+    // a card passed and never re-guessed still counts as seen \u2014 don't repeat it next game
+    if(passedWord) commitUsed(passedWord);
+    // tally from the results map
+    let g=0,p=0; turnResults.forEach(v=>{ v==="got"?g++:p++; });
+    got=g;
+    buildGrid();
+    if(game){ endGameTurn(g,p); return; }   // full game -> scoreboard flow
+    // practice end screen
+    $("#endCat").textContent = catByKey(current).label+" round";
+    $("#endGot").textContent = g;
+    $("#endSub").textContent = g+" guessed"+(p?" \u00b7 1 passed":"")+" this round.";
+    const ul=$("#recapList"); ul.innerHTML="";
+    if(turnResults.size===0){ ul.innerHTML='<li style="color:var(--ink-faint)"><span>No words this round.</span></li>'; }
+    turnResults.forEach((v,word)=>{
+      const ok = v==="got";
+      const li=document.createElement("li");
+      li.className = ok?"got":"passed";
+      li.innerHTML = `<span class="mark">${ok?"\u2713":"\u2715"}</span><span>${word}</span>`;
+      ul.appendChild(li);
+    });
+    buildGrid(); // refresh remaining counts
+    show("end");
+  }
+
+  /* ---------------- audio ---------------- */
+  function initAudio(){
+    if(audio) return;
+    try{ audio=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ audio=null; }
+  }
+  function beep(freq,dur,type,peak){
+    if(!audio) return;
+    try{
+      if(audio.state==="suspended") audio.resume();
+      const o=audio.createOscillator(), g=audio.createGain();
+      o.type=type||"square"; o.frequency.value=freq;
+      g.gain.value=0.0001; o.connect(g); g.connect(audio.destination);
+      const t=audio.currentTime;
+      g.gain.exponentialRampToValueAtTime(peak||0.18,t+0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      o.start(t); o.stop(t+dur+0.02);
+    }catch(e){}
+  }
+
+  /* ---------------- wiring ---------------- */
+  $("#startBtn").addEventListener("click", startRound);
+  $("#gotBtn").addEventListener("click", gotCard);
+  $("#passBtn").addEventListener("click", passCard);
+  $("#stashBtn").addEventListener("click", toggleStash);
+  $("#stopBtn").addEventListener("click", ()=>endRound(false));
+  $("#againBtn").addEventListener("click", ()=>{ setAccent(current); openReady(current); });
+  document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>{
+    clearInterval(ticker); ticker=null; paused=false; $("#pauseOv").classList.remove("on");
+    if(typeof stopConfetti==="function") stopConfetti();
+    $("#buzzOv").classList.remove("on");
+    document.body.classList.remove("flooded","lowtime");
+    const dest=b.dataset.go;
+    if(dest==="home"){ game=null; apPractice=false; setAccentColor("#9b6bff"); }
+    if(dest==="practice"){ game=null; apPractice=false; buildGrid(); }
+    show(dest);
+  }));
+
+  // timer length (practice screen)
+  document.querySelectorAll("#s-practice .seg [data-secs]").forEach(b=>{
+    b.addEventListener("click",()=>{
+      roundSecs=+b.dataset.secs;
+      document.querySelectorAll("#s-practice .seg [data-secs]").forEach(x=>x.setAttribute("aria-pressed", x===b?"true":"false"));
+    });
+  });
+
+  // keyboard: space/right = got, left/p = pass (nice on a laptop)
+  document.addEventListener("keydown",e=>{
+    if(!$("#s-play").classList.contains("on")) return;
+    if(e.code==="Space"||e.code==="ArrowRight"){ e.preventDefault(); gotCard(); }
+    else if(e.code==="ArrowLeft"||e.key.toLowerCase()==="p"){ e.preventDefault(); passCard(); }
+    else if(e.key.toLowerCase()==="r"){ e.preventDefault(); toggleStash(); }
+  });
+
+  // custom words modal
+  function fillCustomSelect(){
+    const s=$("#customCat"); s.innerHTML="";
+    CATS.forEach(c=>{ const o=document.createElement("option"); o.value=c.key; o.textContent=c.label; s.appendChild(o); });
+  }
+  $("#openCustom").addEventListener("click",()=>{ fillCustomSelect(); $("#customErr").classList.remove("show"); $("#customWords").value=""; $("#customModal").classList.add("on"); });
+  $("#closeCustom").addEventListener("click",()=>$("#customModal").classList.remove("on"));
+  const escHtml=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  function showCustErr(html, ok){ const e=$("#customErr"); e.innerHTML=html; e.classList.toggle("cust-ok", !!ok); e.classList.add("show"); }
+  function hideCustErr(){ $("#customErr").classList.remove("show"); }
+  $("#saveCustom").addEventListener("click",()=>{
+    hideCustErr();
+    const k=$("#customCat").value;
+    const raw=$("#customWords").value.split(/[\n,]/).map(w=>w.trim()).filter(Boolean);
+    if(raw.length===0){ showCustErr("Type a word or two first."); return; }
+    const existing=load(customKey(k));
+    const have=new Set(allWords(k).map(w=>w.toLowerCase())); // built-in + custom already in this deck
+    const toAdd=[]; const seenNew=new Set(); const dupeWords=[];
+    raw.forEach(w=>{ const key=w.toLowerCase(); if(have.has(key)||seenNew.has(key)){ dupeWords.push(w); return; } seenNew.add(key); toAdd.push(w); });
+    if(toAdd.length){ save(customKey(k), existing.concat(toAdd)); buildGrid(); }
+    if(dupeWords.length){
+      // error stays visible, panel stays open, offending words remain in the box
+      const added = toAdd.length ? " <b>"+toAdd.length+"</b> new added." : "";
+      showCustErr("Already in "+catByKey(k).label+": <b>"+dupeWords.map(escHtml).join(", ")+"</b> &mdash; skipped."+added);
+      $("#customWords").value=dupeWords.join("\n");
+      return;
+    }
+    // all new
+    $("#customWords").value="";
+    $("#customModal").classList.remove("on");
+    toast(toAdd.length+" word"+(toAdd.length===1?"":"s")+" added to "+catByKey(k).label+".");
+  });
+  $("#customWords").addEventListener("input", hideCustErr);
+  $("#customCat").addEventListener("change", hideCustErr);
+
+  // how modal
+  $("#openHow").addEventListener("click",()=>$("#howModal").classList.add("on"));
+  $("#closeHow").addEventListener("click",()=>$("#howModal").classList.remove("on"));
+
+  // reset deck
+  $("#resetUsed").addEventListener("click",()=>{
+    CATS.forEach(c=>save(usedKey(c.key),[]));
+    buildGrid();
+    toast("Deck reset \u2014 every card is fresh again.");
+  });
+
+  // tap backdrop to close sheets
+  document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{ if(e.target===m) m.classList.remove("on"); }));
+
+  /* ==================== FULL GAME ==================== */
+  const TEAM_COLORS=["#ff4c3b","#2f6bff","#1fbf75","#f5b301","#ff3d8b","#9b6bff"];
+  const NAME_POOL=["Kumquat","Shenanigans","Bongo","Tittle","Kerfuffle","Skibidi","Boingo","Dave","Kevin","Noodle","Waffles","Gizmo","Pickle","Wobble","Doink"];
+  let game=null, target=20, spun=false, paused=false, pauseRem=0, apWords=[], apPractice=false;
+  let nameBag=[];
+  function drawName(){ if(!nameBag.length) nameBag=shuffle(NAME_POOL.slice()); return nameBag.pop(); }
+  let setupTeams=[];
+  function unusedColor(){ const used=new Set(setupTeams.map(t=>t.color)); return TEAM_COLORS.find(c=>!used.has(c)) || TEAM_COLORS[setupTeams.length%TEAM_COLORS.length]; }
+  function freshTeams(){ nameBag=shuffle(NAME_POOL.slice()); setupTeams=[0,1].map(i=>({name:drawName(),color:TEAM_COLORS[i]})); }
+  freshTeams();
+
+  function setAccentColor(hex){ document.documentElement.style.setProperty("--accent", hex||"#9b6bff"); }
+
+  /* ---- setup ---- */
+  function openSetup(){ freshTeams(); renderTeamRows(); setAccentColor("#9b6bff"); document.body.classList.remove("flooded","lowtime"); show("setup"); }
+  function renderTeamRows(){
+    const wrap=$("#teamRows"); wrap.innerHTML="";
+    setupTeams.forEach((t,i)=>{
+      const row=document.createElement("div"); row.className="team-row";
+      row.innerHTML=`<span class="dot" style="background:${t.color}"></span>`+
+        `<input type="text" maxlength="14" value="${t.name.replace(/"/g,'&quot;')}" data-i="${i}">`+
+        (setupTeams.length>2?`<button class="rm" data-rm="${i}" aria-label="Remove team">&times;</button>`:``);
+      wrap.appendChild(row);
+    });
+  }
+  $("#teamRows").addEventListener("input",e=>{ const i=e.target.dataset.i; if(i!=null) setupTeams[i].name=e.target.value; });
+  $("#teamRows").addEventListener("click",e=>{ const rm=e.target.dataset.rm; if(rm!=null){ setupTeams.splice(+rm,1); renderTeamRows(); } });
+  $("#addTeam").addEventListener("click",()=>{ if(setupTeams.length>=6) return; setupTeams.push({name:drawName(),color:unusedColor()}); renderTeamRows(); });
+  document.querySelectorAll("#targetSeg button").forEach(b=>b.addEventListener("click",()=>{ target=+b.dataset.t; document.querySelectorAll("#targetSeg button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false")); }));
+  document.querySelectorAll("#secSeg button").forEach(b=>b.addEventListener("click",()=>{ roundSecs=+b.dataset.secs; document.querySelectorAll("#secSeg button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false")); }));
+  $("#startGame").addEventListener("click",()=>{
+    document.querySelectorAll("#teamRows input").forEach(inp=>{ const i=inp.dataset.i; if(i!=null) setupTeams[i].name=(inp.value.trim()||setupTeams[i].name||drawName()); });
+    game={ teams:setupTeams.map(t=>({name:t.name,color:t.color,score:0})), turn:0 };
+    apPractice=false;
+    initAudio();
+    enterTurnScreen();
+  });
+
+  /* ---- scoreboard + turn ---- */
+  function buildBoard(){
+    const b=$("#board"); b.innerHTML="";
+    game.teams.forEach((t,i)=>{
+      const row=document.createElement("div");
+      row.className="board-row"+(i===game.turn?" active":"");
+      row.innerHTML=`<span class="dot" style="background:${t.color}"></span>`+
+        `<span class="nm">${t.name}</span>`+
+        (t.score>=target?`<span class="fin">finish</span>`:``)+
+        `<span class="pts">${t.score}</span>`;
+      b.appendChild(row);
+    });
+  }
+  function enterTurnScreen(){
+    spun=false;
+    const t=game.teams[game.turn];
+    setAccentColor(t.color);
+    $("#turnWho").textContent=t.name;
+    const atFin=t.score>=target;
+    $("#spinCat").textContent=atFin?"All-play!":"Ready?";
+    $("#turnSub").innerHTML=atFin?"At the finish &mdash; play for the win!":"Tap to spin your category";
+    $("#spinCta").textContent=atFin?"Play for the win":"Spin the category";
+    $("#spinCta").disabled=false;
+    buildBoard();
+    document.body.classList.remove("flooded","lowtime");
+    show("turn");
+  }
+  $("#spinCta").addEventListener("click",()=>{
+    const t=game.teams[game.turn];
+    if(t.score>=target){ apPractice=false; dealAllPlay(); return; }
+    if(!spun) doSpin(); else startRound();
+  });
+  function doSpin(){
+    initAudio();
+    $("#spinCta").disabled=true;
+    const finalIndex=rnd(CATS.length);
+    const total=CATS.length*3+finalIndex+1;
+    let ticks=0;
+    const iv=setInterval(()=>{
+      const c=CATS[ticks%CATS.length];
+      $("#spinCat").textContent=c.label;
+      setAccentColor(c.color);
+      beep(150+(ticks%6)*14,0.05,"sine",0.05);   // soft low tick
+      ticks++;
+      if(ticks>=total){
+        clearInterval(iv);
+        const fc=CATS[finalIndex];
+        current=fc.key; spun=true;
+        setAccentColor(fc.color);
+        $("#spinCat").innerHTML=fc.label+`<span class="s">${fc.sub}</span>`;
+        $("#spinCta").textContent="Start round"; $("#spinCta").disabled=false;
+        $("#turnSub").textContent="Hand the phone to the describer";
+        beep(392,0.12,"sine",0.09); setTimeout(()=>beep(523,0.16,"sine",0.09),90); // gentle landing chime
+        if(navigator.vibrate) navigator.vibrate(30);
+      }
+    },70);
+  }
+  $("#quitGame").addEventListener("click",()=>{ game=null; setAccentColor("#9b6bff"); show("home"); });
+
+  /* ---- turn end ---- */
+  function endGameTurn(g,p){
+    const t=game.teams[game.turn];
+    t.score+=g;
+    const reached=t.score>=target;
+    setAccentColor(t.color);
+    $("#teName").textContent=t.name+" score:";
+    $("#teGot").textContent=g;
+    const sub=$("#teSub");
+    if(reached){ sub.style.display="block"; sub.textContent=`At the finish (${t.score}/${target}) \u2014 play for the win next turn.`; }
+    else { sub.style.display="block"; sub.style.color="var(--ink-dim)"; sub.textContent=`${t.score} / ${target} total`+(p?" \u00b7 1 passed":""); }
+    const ul=$("#teRecap"); ul.innerHTML="";
+    if(turnResults.size===0) ul.innerHTML='<li style="color:var(--ink-faint)"><span>No words this turn.</span></li>';
+    turnResults.forEach((v,word)=>{ const ok=v==="got"; const li=document.createElement("li"); li.className=ok?"got":"passed"; li.innerHTML=`<span class="mark">${ok?"\u2713":"\u2715"}</span><span>${word}</span>`; ul.appendChild(li); });
+    show("turnend");
+  }
+  $("#teNext").addEventListener("click",()=>{ game.turn=(game.turn+1)%game.teams.length; enterTurnScreen(); });
+
+  /* ---- all-play ---- */
+  function practiceAP(){ apPractice=true; game=null; dealAllPlay(); }
+  function dealAllPlay(){
+    const idx=[]; while(idx.length<2){ const r=rnd(CATS.length); if(!idx.includes(r)) idx.push(r); }
+    apWords=idx.map(i=>{ current=CATS[i].key; buildPool(); return {cat:CATS[i], word:pool.pop()}; });
+    $("#apWho").textContent = apPractice ? "All-play" : game.teams[game.turn].name;
+    $("#apSub").innerHTML = apPractice
+      ? "Pick <b>one</b> card and describe it &mdash; no timer, just for fun."
+      : "All-play for the win! Pick <b>one</b> card to describe &mdash; no timer, every team can shout the answer.";
+    $("#apNote").style.display = apPractice ? "none" : "";
+    const wrap=$("#apCards"); wrap.innerHTML="";
+    apWords.forEach((c,i)=>{
+      const card=document.createElement("div"); card.className="ap-card"; card.style.setProperty("--cc",c.cat.color);
+      card.innerHTML=`<div class="cat">${c.cat.label}</div><div class="wd">${c.word}</div>`+
+        `<button class="cta pick" data-i="${i}">Describe this one</button>`;
+      wrap.appendChild(card);
+    });
+    setAccentColor(apPractice ? "#9b6bff" : game.teams[game.turn].color);
+    document.body.classList.remove("flooded","lowtime");
+    show("apsetup");
+  }
+  $("#apCards").addEventListener("click",e=>{ const b=e.target.closest(".pick"); if(!b) return; startAllPlay(apWords[+b.dataset.i]); });
+  function startAllPlay(c){
+    current=c.cat.key; setAccent(c.cat.key);
+    $("#apCat").textContent=c.cat.label;
+    $("#apWord").textContent=c.word;
+    if(apPractice){
+      $("#apWin").innerHTML='Next pair<small>deal two new cards</small>';
+      $("#apSteal").innerHTML='Done<small>back to cards</small>';
+    } else {
+      $("#apWin").innerHTML='We got it!<small>your team wins the game</small>';
+      $("#apSteal").innerHTML='Boo!<small>another team got it first</small>';
+    }
+    document.body.classList.add("flooded");
+    show("allplay");
+  }
+  function commitAllPlayUsed(){ apWords.forEach(c=>commitUsed(c.word,c.cat.key)); buildGrid(); }
+
+  function fanfare(){
+    initAudio();
+    // B4 A4 G#4 F#4 E4 G#4 B4 E5
+    const seq=[[493.88,0],[440.00,150],[415.30,300],[369.99,450],[329.63,600],[415.30,750],[493.88,900],[659.26,1080]];
+    seq.forEach(([f,t],i)=>{ const d=(i===seq.length-1)?0.7:0.16; setTimeout(()=>{ beep(f,d,"triangle",0.13); beep(f/2,d,"sine",0.05); }, t); }); // note + soft octave under
+  }
+  function confettiBurst(){
+    const cv=$("#confetti");
+    if(window.matchMedia && matchMedia("(prefers-reduced-motion:reduce)").matches) return;
+    const ctx=cv.getContext("2d");
+    const W=cv.width=window.innerWidth, H=cv.height=window.innerHeight;
+    cv.classList.add("on");
+    const colors=TEAM_COLORS.concat(["#ffffff","#ffd94a"]);
+    const parts=[];
+    for(let i=0;i<160;i++) parts.push({x:Math.random()*W,y:-20-Math.random()*H*0.5,vx:(Math.random()-0.5)*2.4,vy:2+Math.random()*3.6,s:6+Math.random()*7,rot:Math.random()*6.28,vr:(Math.random()-0.5)*0.35,c:colors[Math.floor(Math.random()*colors.length)]});
+    const started=performance.now();
+    function frame(now){
+      ctx.clearRect(0,0,W,H);
+      let alive=false;
+      for(const p of parts){
+        p.x+=p.vx; p.y+=p.vy; p.vy+=0.035; p.rot+=p.vr;
+        if(p.y<H+30) alive=true;
+        ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+        ctx.globalAlpha=Math.max(0,1-(now-started)/5400); ctx.fillStyle=p.c;
+        ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.62); ctx.restore();
+      }
+      if(alive && now-started<5400) requestAnimationFrame(frame);
+      else { ctx.clearRect(0,0,W,H); cv.classList.remove("on"); }
+    }
+    requestAnimationFrame(frame);
+  }
+  function stopConfetti(){ const cv=$("#confetti"); cv.classList.remove("on"); const c=cv.getContext&&cv.getContext("2d"); if(c) c.clearRect(0,0,cv.width,cv.height); }
+
+  $("#apWin").addEventListener("click",()=>{
+    commitAllPlayUsed();
+    if(apPractice){ practiceAP(); return; }   // "Next pair" in practice
+    document.body.classList.remove("flooded");
+    const t=game.teams[game.turn];
+    setAccentColor(t.color);
+    $("#winName").textContent=t.name;
+    $("#winSub").textContent=`Reached ${target} and nailed the all-play.`;
+    if(navigator.vibrate) navigator.vibrate([120,60,120,60,220]);
+    show("victory");
+    confettiBurst(); fanfare();
+  });
+  $("#apSteal").addEventListener("click",()=>{
+    commitAllPlayUsed();
+    document.body.classList.remove("flooded");
+    if(apPractice){ apPractice=false; setAccentColor("#9b6bff"); buildGrid(); show("practice"); return; }  // "Done" in practice
+    toast("Boo! "+game.teams[game.turn].name+" missed it - they all-play again next turn.");
+    game.turn=(game.turn+1)%game.teams.length;
+    enterTurnScreen();
+  });
+  $("#rematch").addEventListener("click",()=>{ stopConfetti(); game.teams.forEach(t=>t.score=0); game.turn=0; enterTurnScreen(); });
+
+  /* ---- pause + foul ---- */
+  $("#pauseBtn").addEventListener("click",()=>{ if(paused||!ticker) return; paused=true; pauseRem=Math.max(0,endAt-Date.now()); clearInterval(ticker); ticker=null; $("#pauseOv").classList.add("on"); });
+  $("#resumeBtn").addEventListener("click",()=>{ if(!paused) return; paused=false; $("#pauseOv").classList.remove("on"); endAt=Date.now()+pauseRem; ticker=setInterval(tick,100); });
+  $("#foulBtn").addEventListener("click",()=>{
+    commitUsed(currentWord);
+    turnResults.delete(currentWord);
+    if(viewingPassed && currentWord===passedWord){ passedWord=null; viewingPassed=false; if(stashedWord){currentWord=stashedWord;stashedWord=null;renderWord(false);} else nextWord(); }
+    else nextWord();
+    refreshScore(); updatePassBtn(); updateStash();
+    toast("Card discarded \u2014 no point.");
+  });
+
+  /* ---- home nav ---- */
+  $("#goSetup").addEventListener("click",openSetup);
+  $("#goPractice").addEventListener("click",()=>{ game=null; apPractice=false; buildGrid(); setAccentColor("#9b6bff"); show("practice"); });
+  $("#goPracticeAP").addEventListener("click", practiceAP);
+  $("#buzzGot").addEventListener("click", buzzerGot);
+  $("#buzzMiss").addEventListener("click", buzzerMiss);
+
+  buildGrid();
+})();
+</script>
