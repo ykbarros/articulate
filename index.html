@@ -323,6 +323,7 @@
       <div class="ready-hint">Hand the phone to the <span class="kbd">describer</span></div>
     </div>
     <button class="cta" id="startBtn">Start round</button>
+    <button class="ghost" id="shuffleBtn" style="margin-top:10px">&#128256; Shuffle deck</button>
   </section>
 
   <!-- ============ PLAY ============ -->
@@ -331,6 +332,7 @@
       <span class="tag-cat" id="playCat">Object</span>
       <span class="score-chip" id="scGot">0</span>
       <div class="top-btns">
+        <button class="mini-btn" id="shuffleMid" title="Reshuffle the upcoming cards">&#128256;</button>
         <button class="mini-btn" id="pauseBtn">Pause</button>
         <button class="mini-btn danger" id="stopBtn">End</button>
       </div>
@@ -557,6 +559,7 @@
   let roundSecs = 30;
   let current = null;      // category key
   let pool = [];           // shuffled available words for this round
+  let poolReady = false;   // true once the deck has been shuffled for the upcoming round
   let currentWord = "";
   let got = 0;
   let turnResults = new Map(); // word -> 'got' | 'passed' (one entry per word, latest wins)
@@ -619,6 +622,7 @@
 
   function openReady(k){
     current=k; setAccent(k);
+    poolReady=false;   // picking a category invalidates any previous shuffle
     const c=catByKey(k);
     $("#readyCat").textContent=c.label;
     document.body.classList.remove("flooded","lowtime");
@@ -640,6 +644,7 @@
       toast("Whole "+catByKey(current).label+" deck seen \u2014 reshuffling!");
     }
     pool=shuffle(avail);
+    poolReady=true;
   }
 
   function renderWord(isRetry){
@@ -682,7 +687,7 @@
   }
 
   function startRound(){
-    buildPool();
+    if(!poolReady) buildPool();   // reuse a deck the player shuffled manually
     got=0; turnResults=new Map(); passUsed=false; passedWord=null;
     stashedWord=null; viewingPassed=false;
     $("#scGot").textContent="0";
@@ -829,6 +834,12 @@
 
   /* ---------------- wiring ---------------- */
   $("#startBtn").addEventListener("click", startRound);
+  $("#shuffleBtn").addEventListener("click", ()=>{ buildPool(); toast("Deck shuffled — "+pool.length+" cards re-randomised"); });
+  $("#shuffleMid").addEventListener("click", ()=>{
+    buildPool();                                   // reshuffle the remaining deck
+    pool = pool.filter(w=>w!==currentWord);        // keep the card on screen out of the reshuffle
+    toast("Upcoming cards reshuffled");
+  });
   $("#gotBtn").addEventListener("click", gotCard);
   $("#passBtn").addEventListener("click", passCard);
   $("#stashBtn").addEventListener("click", toggleStash);
