@@ -123,19 +123,13 @@
     font-family:var(--display);font-weight:900;font-size:40px;font-variant-numeric:tabular-nums}
   body.lowtime .ring-num{color:var(--miss)}
   body.lowtime .ring .prog{stroke:var(--miss)}
+  .ring-pen{position:absolute;left:50%;top:50%;margin-left:70px;transform:translateY(-50%);opacity:0;pointer-events:none;
+    color:var(--miss);font-weight:900;font-size:20px}
+  .ring-pen.show{animation:penFloat .9s ease-out}
+  @keyframes penFloat{0%{opacity:1;transform:translateY(-50%)}100%{opacity:0;transform:translateY(-150%)}}
 
   .word-stage{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:14px 4px}
   .stage-inner{display:flex;flex-direction:column;align-items:center;gap:16px}
-  .retry-tag{display:none;align-items:center;gap:7px;font-size:12.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
-    color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent);
-    border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);padding:7px 14px;border-radius:999px}
-  .retry-tag.show{display:inline-flex}
-  .stash-bar{display:none;width:100%;margin-top:8px;padding:13px 16px;border-radius:16px;
-    background:color-mix(in srgb,var(--accent) 14%,var(--panel));
-    border:1px dashed color-mix(in srgb,var(--accent) 55%,transparent);
-    color:var(--accent);font-weight:800;font-size:13.5px;letter-spacing:.03em;text-transform:uppercase}
-  .stash-bar.show{display:block}
-  .stash-bar:active{transform:scale(.98)}
   .word{font-family:var(--display);font-weight:900;text-transform:uppercase;line-height:.94;letter-spacing:-.03em;
     font-size:clamp(40px,13.5vw,68px);text-wrap:balance;transition:opacity .12s ease, transform .12s ease}
   .word.pop{animation:pop .18s ease}
@@ -146,8 +140,6 @@
     font-size:20px;letter-spacing:.02em;transition:transform .09s ease}
   .btn:active{transform:translateY(2px) scale(.98)}
   .btn-pass{background:var(--panel-2);color:var(--ink-dim);border:1px solid var(--line)}
-  .btn-pass.spent{opacity:.42;cursor:default}
-  .btn-pass.spent:active{transform:none}
   .btn-got{background:var(--good);color:#04150d;box-shadow:0 12px 26px -12px var(--good)}
   .btn small{display:block;font-family:var(--body);font-weight:700;font-size:11px;letter-spacing:.1em;opacity:.7;margin-top:3px}
 
@@ -167,6 +159,8 @@
   .recap li.got .mark{background:color-mix(in srgb,var(--good) 24%,transparent);color:var(--good)}
   .recap li.passed .mark{background:color-mix(in srgb,var(--miss) 22%,transparent);color:var(--miss)}
   .recap li.passed span{color:var(--ink-dim)}
+  .recap li.foul .mark{background:color-mix(in srgb,var(--miss) 12%,transparent);color:var(--miss)}
+  .recap li.foul span{color:var(--ink-faint)}
 
   .end-actions{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:12px}
   .end-actions .cta{padding:18px;font-size:18px}
@@ -343,17 +337,16 @@
         <circle class="prog" id="ringProg" cx="60" cy="60" r="52"></circle>
       </svg>
       <div class="ring-num" id="ringNum">30</div>
+      <div class="ring-pen" id="ringPen" aria-hidden="true">&minus;3s</div>
     </div>
     <div class="word-stage">
       <div class="stage-inner">
-        <div class="retry-tag" id="retryTag">&#8617; Your passed card &mdash; another go</div>
         <div class="word" id="wordEl">Ready</div>
       </div>
     </div>
-    <button class="stash-bar" id="stashBtn" type="button">&#8617; Go back to the card you passed</button>
     <button class="foul-bar" id="foulBtn" type="button">&#9873; Foul &mdash; discard this card</button>
     <div class="actions">
-      <button class="btn btn-pass" id="passBtn">Pass<small>once per turn</small></button>
+      <button class="btn btn-pass" id="passBtn">Pass<small>&minus;3 seconds</small></button>
       <button class="btn btn-got" id="gotBtn">Got it<small>tap for the next word</small></button>
     </div>
   </section>
@@ -498,7 +491,7 @@
     <ol class="how">
       <li><b>New game</b> &rarr; name your teams and pick a target (20 / 30 / 40).</li>
       <li>On your turn, <b>spin</b> for a random category, then the describer gets word after word for 30 seconds.</li>
-      <li>Describe it <b>without saying the word</b>, any part of it, or what it rhymes with. Right? <b>Got it</b>. Stuck? <b>Pass</b> (once, and you can go back to it). Broke a rule? <b>Foul</b> to bin the card.</li>
+      <li>Describe it <b>without saying the word</b>, any part of it, or what it rhymes with. Right? <b>Got it</b>. Stuck? <b>Pass</b> as often as you like &mdash; each pass costs 3 seconds. Broke a rule? <b>Foul</b> to bin the card.</li>
       <li>Each <b>Got it</b> is a point; scores track automatically. First team to the target reaches the <b>finish</b>.</li>
       <li>To win you must take the <b>all-play</b>: pick one of two cards and describe it with no timer &mdash; your team has to guess before anyone else shouts it, or you try again next turn.</li>
     </ol>
@@ -563,10 +556,8 @@
   let poolKey = null;      // category the current pool was built from
   let currentWord = "";
   let got = 0;
-  let turnResults = new Map(); // word -> 'got' | 'passed' (one entry per word, latest wins)
-  let passUsed = false, passedWord = null; // one pass allowed per turn; passedWord is retrievable any time
-  let stashedWord = null;   // the deck card set aside while you look at the passed card
-  let viewingPassed = false;// true while the passed card is on screen
+  let turnResults = new Map(); // word -> 'got' | 'passed' | 'foul'
+  const PASS_COST_MS = 3000;   // each pass takes this much off the clock
   let ticker = null, endAt = 0, audio = null, lastBeepSec = null;
 
   /* ---------------- storage helpers ---------------- */
@@ -649,55 +640,23 @@
     poolReady=true;
   }
 
-  function renderWord(isRetry){
+  function renderWord(){
     const w=$("#wordEl");
     w.textContent=currentWord;
     w.classList.remove("pop"); void w.offsetWidth; w.classList.add("pop");
-    $("#retryTag").classList.toggle("show", !!isRetry);
   }
   function nextWord(){
     if(pool.length===0) buildPool();
     currentWord = pool.pop();
-    viewingPassed = false;
-    renderWord(false);
+    renderWord();
   }
-  function updateStash(){
-    const bar=$("#stashBtn");
-    if(viewingPassed){
-      bar.classList.add("show");
-      bar.innerHTML='&larr; Back to the deck';
-    } else if(passedWord){
-      bar.classList.add("show");
-      bar.innerHTML='&#8617; Go back to the card you passed';
-    } else {
-      bar.classList.remove("show");
-    }
-  }
-  function toggleStash(){
-    if(!passedWord) return;
-    if(!viewingPassed){
-      stashedWord = currentWord;      // set the current deck card aside
-      currentWord = passedWord;
-      viewingPassed = true;
-      renderWord(true);               // show it with the "another go" badge
-    } else {
-      viewingPassed = false;          // return to where you were in the deck
-      if(stashedWord){ currentWord = stashedWord; stashedWord = null; renderWord(false); }
-      else nextWord();
-    }
-    updateStash();
-  }
-
   function startRound(){
     // reuse a deck the player shuffled manually, but only if it's for this category
     if(!poolReady || poolKey!==current) buildPool();
     poolReady=false;              // a manual shuffle only carries into one round
-    got=0; turnResults=new Map(); passUsed=false; passedWord=null;
-    stashedWord=null; viewingPassed=false;
+    got=0; turnResults=new Map();
     $("#scGot").textContent="0";
     updatePassBtn();
-    updateStash();
-    $("#retryTag").classList.remove("show");
     $("#playCat").textContent=catByKey(current).label;
     document.body.classList.add("flooded");
     document.body.classList.remove("lowtime");
@@ -734,8 +693,16 @@
     }
   }
   function showBuzzer(){ $("#buzzWord").textContent=currentWord; $("#buzzOv").classList.add("on"); }
-  function buzzerGot(){ turnResults.set(currentWord,"got"); commitUsed(currentWord); if(currentWord===passedWord) passedWord=null; $("#buzzOv").classList.remove("on"); endRound(true,true); }
+  function buzzerGot(){ turnResults.set(currentWord,"got"); commitUsed(currentWord); $("#buzzOv").classList.remove("on"); endRound(true,true); }
   function buzzerMiss(){ $("#buzzOv").classList.remove("on"); endRound(true,true); }
+
+  function recapItem(v,word){
+    const li=document.createElement("li");
+    li.className=v;
+    const mark = v==="got" ? "\u2713" : v==="foul" ? "\u2691" : "\u2715";
+    li.innerHTML=`<span class="mark">${mark}</span><span>${word}${v==="foul"?" (foul)":""}</span>`;
+    return li;
+  }
 
   const R=52, CIRC=2*Math.PI*R;
   function updateRing(rem,total){
@@ -754,38 +721,27 @@
     got=g; $("#scGot").textContent=g;
   }
   function updatePassBtn(){
-    const b=$("#passBtn");
-    if(passUsed){
-      b.classList.add("spent"); b.disabled=true;
-      b.innerHTML='Pass used<small>you\u2019ll get it back</small>';
-    } else {
-      b.classList.remove("spent"); b.disabled=false;
-      b.innerHTML='Pass<small>once per turn</small>';
-    }
+    $("#passBtn").innerHTML = roundSecs>0 ? 'Pass<small>&minus;3 seconds</small>' : 'Pass<small>skip this card</small>';
   }
 
   function gotCard(){
-    turnResults.set(currentWord,"got");   // overwrites a prior "passed" if this was the retry
+    turnResults.set(currentWord,"got");
     commitUsed(currentWord);
-    const solvedPassed = (currentWord===passedWord);
-    if(solvedPassed) passedWord=null;     // stop offering the retry
     refreshScore();
-    if(viewingPassed && solvedPassed && stashedWord){
-      // solved the retried card -> drop back onto the card you were describing
-      currentWord=stashedWord; stashedWord=null; viewingPassed=false; renderWord(false);
-    } else {
-      nextWord();
-    }
-    updateStash();
+    nextWord();
   }
 
   function passCard(){
-    if(passUsed) return;                  // only one pass per turn
-    passUsed=true; passedWord=currentWord;
+    if(roundSecs>0 && !ticker) return;    // paused or time already up
     turnResults.set(currentWord,"passed");
-    updatePassBtn();
-    nextWord();                           // move on; the passed card waits under "Go back"
-    updateStash();
+    commitUsed(currentWord);              // a passed card still counts as seen
+    if(roundSecs>0){
+      endAt -= PASS_COST_MS;
+      const pen=$("#ringPen"); pen.classList.remove("show"); void pen.offsetWidth; pen.classList.add("show");
+      if(endAt<=Date.now()){ endRound(true); return; }   // the pass used up the last seconds
+      tick();
+    }
+    nextWord();
   }
 
   function endRound(timeUp, quiet){
@@ -793,26 +749,18 @@
     paused=false; $("#pauseOv").classList.remove("on"); $("#buzzOv").classList.remove("on");
     if(!quiet){ if(navigator.vibrate) navigator.vibrate(timeUp?[120,60,120]:60); if(timeUp) beep(440,0.25); }
     document.body.classList.remove("flooded","lowtime");
-    // a card passed and never re-guessed still counts as seen \u2014 don't repeat it next game
-    if(passedWord) commitUsed(passedWord);
     // tally from the results map
-    let g=0,p=0; turnResults.forEach(v=>{ v==="got"?g++:p++; });
+    let g=0,p=0; turnResults.forEach(v=>{ if(v==="got") g++; else if(v==="passed") p++; });
     got=g;
     buildGrid();
     if(game){ endGameTurn(g,p); return; }   // full game -> scoreboard flow
     // practice end screen
     $("#endCat").textContent = catByKey(current).label+" round";
     $("#endGot").textContent = g;
-    $("#endSub").textContent = g+" guessed"+(p?" \u00b7 1 passed":"")+" this round.";
+    $("#endSub").textContent = g+" guessed"+(p?" \u00b7 "+p+" passed":"")+" this round.";
     const ul=$("#recapList"); ul.innerHTML="";
     if(turnResults.size===0){ ul.innerHTML='<li style="color:var(--ink-faint)"><span>No words this round.</span></li>'; }
-    turnResults.forEach((v,word)=>{
-      const ok = v==="got";
-      const li=document.createElement("li");
-      li.className = ok?"got":"passed";
-      li.innerHTML = `<span class="mark">${ok?"\u2713":"\u2715"}</span><span>${word}</span>`;
-      ul.appendChild(li);
-    });
+    turnResults.forEach((v,word)=>ul.appendChild(recapItem(v,word)));
     buildGrid(); // refresh remaining counts
     show("end");
   }
@@ -846,7 +794,6 @@
   });
   $("#gotBtn").addEventListener("click", gotCard);
   $("#passBtn").addEventListener("click", passCard);
-  $("#stashBtn").addEventListener("click", toggleStash);
   $("#stopBtn").addEventListener("click", ()=>endRound(false));
   $("#againBtn").addEventListener("click", ()=>{ setAccent(current); openReady(current); });
   document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>{
@@ -873,7 +820,6 @@
     if(!$("#s-play").classList.contains("on")) return;
     if(e.code==="Space"||e.code==="ArrowRight"){ e.preventDefault(); gotCard(); }
     else if(e.code==="ArrowLeft"||e.key.toLowerCase()==="p"){ e.preventDefault(); passCard(); }
-    else if(e.key.toLowerCase()==="r"){ e.preventDefault(); toggleStash(); }
   });
 
   // custom words modal
@@ -1032,10 +978,10 @@
     $("#teGot").textContent=g;
     const sub=$("#teSub");
     if(reached){ sub.style.display="block"; sub.textContent=`At the finish (${t.score}/${target}) \u2014 play for the win next turn.`; }
-    else { sub.style.display="block"; sub.style.color="var(--ink-dim)"; sub.textContent=`${t.score} / ${target} total`+(p?" \u00b7 1 passed":""); }
+    else { sub.style.display="block"; sub.style.color="var(--ink-dim)"; sub.textContent=`${t.score} / ${target} total`+(p?" \u00b7 "+p+" passed":""); }
     const ul=$("#teRecap"); ul.innerHTML="";
     if(turnResults.size===0) ul.innerHTML='<li style="color:var(--ink-faint)"><span>No words this turn.</span></li>';
-    turnResults.forEach((v,word)=>{ const ok=v==="got"; const li=document.createElement("li"); li.className=ok?"got":"passed"; li.innerHTML=`<span class="mark">${ok?"\u2713":"\u2715"}</span><span>${word}</span>`; ul.appendChild(li); });
+    turnResults.forEach((v,word)=>ul.appendChild(recapItem(v,word)));
     show("turnend");
   }
   $("#teNext").addEventListener("click",()=>{ game.turn=(game.turn+1)%game.teams.length; enterTurnScreen(); });
@@ -1138,10 +1084,9 @@
   $("#resumeBtn").addEventListener("click",()=>{ if(!paused) return; paused=false; $("#pauseOv").classList.remove("on"); endAt=Date.now()+pauseRem; ticker=setInterval(tick,100); });
   $("#foulBtn").addEventListener("click",()=>{
     commitUsed(currentWord);
-    turnResults.delete(currentWord);
-    if(viewingPassed && currentWord===passedWord){ passedWord=null; viewingPassed=false; if(stashedWord){currentWord=stashedWord;stashedWord=null;renderWord(false);} else nextWord(); }
-    else nextWord();
-    refreshScore(); updatePassBtn(); updateStash();
+    turnResults.set(currentWord,"foul");  // shows in the recap so fouls can't be a quiet free pass
+    nextWord();
+    refreshScore();
     toast("Card discarded \u2014 no point.");
   });
 
