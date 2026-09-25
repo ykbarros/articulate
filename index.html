@@ -560,6 +560,7 @@
   let current = null;      // category key
   let pool = [];           // shuffled available words for this round
   let poolReady = false;   // true once the deck has been shuffled for the upcoming round
+  let poolKey = null;      // category the current pool was built from
   let currentWord = "";
   let got = 0;
   let turnResults = new Map(); // word -> 'got' | 'passed' (one entry per word, latest wins)
@@ -644,6 +645,7 @@
       toast("Whole "+catByKey(current).label+" deck seen \u2014 reshuffling!");
     }
     pool=shuffle(avail);
+    poolKey=current;
     poolReady=true;
   }
 
@@ -687,7 +689,9 @@
   }
 
   function startRound(){
-    if(!poolReady) buildPool();   // reuse a deck the player shuffled manually
+    // reuse a deck the player shuffled manually, but only if it's for this category
+    if(!poolReady || poolKey!==current) buildPool();
+    poolReady=false;              // a manual shuffle only carries into one round
     got=0; turnResults=new Map(); passUsed=false; passedWord=null;
     stashedWord=null; viewingPassed=false;
     $("#scGot").textContent="0";
